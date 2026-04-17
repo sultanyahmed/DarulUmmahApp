@@ -14,6 +14,8 @@ import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.create
 import platform.Foundation.dataWithContentsOfURL
+import platform.darwin.dispatch_async
+import platform.darwin.dispatch_get_main_queue
 import platform.UIKit.UIDevice
 import platform.UserNotifications.UNAuthorizationOptionAlert
 import platform.UserNotifications.UNAuthorizationOptionBadge
@@ -69,8 +71,23 @@ actual fun updateNotificationSchedules(
 
     notificationCenter.requestAuthorizationWithOptions(
         options = UNAuthorizationOptionAlert or UNAuthorizationOptionSound or UNAuthorizationOptionBadge,
-    ) { _, _ -> }
+    ) { granted, _ ->
+        if (!granted) return@requestAuthorizationWithOptions
+        dispatch_async(dispatch_get_main_queue()) {
+            scheduleAuthorizedNotifications(
+                preferences = preferences,
+                timetable = timetable,
+                isoDayOfWeek = isoDayOfWeek,
+            )
+        }
+    }
+}
 
+private fun scheduleAuthorizedNotifications(
+    preferences: NotificationPreferences,
+    timetable: PrayerTimetable,
+    isoDayOfWeek: Int,
+) {
     val prayerEvents = timetable.dailyPrayerTimes.mapIndexed { index, prayer ->
         val isFridayZuhr = isoDayOfWeek == 5 && prayer.name == "Zuhr"
         val name = if (isFridayZuhr) "Jum'ah" else prayer.name
