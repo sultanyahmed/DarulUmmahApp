@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		BC5CA96C6E8B24EB469CAC5F /* darulummahapp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = darulummahapp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		BC5CA96C6E8B24EB469CAC5F /* DarulUmmahShadwell.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DarulUmmahShadwell.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -59,7 +59,7 @@
 		0BF71D2610DCD3E1A12351AE /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				BC5CA96C6E8B24EB469CAC5F /* darulummahapp.app */,
+				BC5CA96C6E8B24EB469CAC5F /* DarulUmmahShadwell.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -86,8 +86,8 @@
 			name = iosApp;
 			packageProductDependencies = (
 			);
-			productName = iosApp;
-			productReference = BC5CA96C6E8B24EB469CAC5F /* darulummahapp.app */;
+			productName = DarulUmmahShadwell;
+			productReference = BC5CA96C6E8B24EB469CAC5F /* DarulUmmahShadwell.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -152,7 +152,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\ncd \"$SRCROOT/..\"\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
+			shellScript = "if [ \"YES\" = \"$OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED\" ]; then\n  echo \"Skipping Gradle build task invocation due to OVERRIDE_KOTLIN_BUILD_IDE_SUPPORTED environment variable set to \\\"YES\\\"\"\n  exit 0\nfi\nPROJECT_ROOT=\"$SRCROOT/..\"\nif [ ! -f \"$PROJECT_ROOT/gradlew\" ]; then\n  PROJECT_ROOT=\"$PROJECT_DIR/..\"\nfi\ncd \"$PROJECT_ROOT\" || exit 1\nchmod +x ./gradlew\n./gradlew :composeApp:embedAndSignAppleFrameworkForXcode\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
