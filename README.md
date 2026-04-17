@@ -28,8 +28,16 @@ in your IDE’s toolbar or build it directly from the terminal:
 
 ### Build and Run iOS Application
 
-To build and run the development version of the iOS app, use the run configuration from the run widget
-in your IDE’s toolbar or open the [/iosApp](./iosApp) directory in Xcode and run it from there.
+To build and run the iOS app on a Mac:
+
+1. Open `iosApp/iosApp.xcodeproj` in Xcode.
+2. Select the shared `iosApp` scheme.
+3. Select an iPhone simulator or your connected iPhone.
+4. In Signing & Capabilities, select your Apple development team if Xcode asks for one.
+5. Run the app.
+
+The Xcode build phase runs `./gradlew :composeApp:embedAndSignAppleFrameworkForXcode`
+from the repository root to build and embed the shared Compose framework.
 
 ---
 
