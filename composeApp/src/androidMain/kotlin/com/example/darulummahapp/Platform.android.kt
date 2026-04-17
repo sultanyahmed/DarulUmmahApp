@@ -80,7 +80,7 @@ actual fun updateNotificationSchedules(
             requestCode = COMMUNITY_NOTIFICATION_REQUEST_CODE,
             triggerAtMillis = nextTriggerMillis(9 * 60),
             title = "Darul Ummah Shadwell",
-            message = "Check today's classes and announcements in the app.",
+            message = "Check class updates in the app.",
         )
     }
 }

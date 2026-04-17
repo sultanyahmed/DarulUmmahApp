@@ -142,10 +142,7 @@ private val classSchedule = listOf(
     ClassSession("Sisters Study", "Saturday", "11:00", "Sisters"),
 )
 
-private val eventAnnouncements = listOf(
-    EventAnnouncement("Community Iftar", "Saturday 20 April", "Bring family and arrive before Maghrib."),
-    EventAnnouncement("Youth Reminder", "Sunday 21 April", "Short talk and activities after Asr."),
-)
+private val eventAnnouncements = emptyList<EventAnnouncement>()
 
 @Composable
 @Preview
@@ -544,7 +541,7 @@ private fun NotificationSettings(
             )
             NotificationRow(
                 title = "Classes and events",
-                detail = "Quran classes and announcements",
+                detail = "Class updates and future announcements",
                 enabled = preferences.classesAndEvents,
                 onEnabledChanged = {
                     onPreferencesChanged(preferences.copy(classesAndEvents = it))
@@ -660,12 +657,20 @@ private fun ClassesAndEventsScreen() {
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("Announcements")
-                eventAnnouncements.forEach { event ->
-                    ScheduleRow(
-                        title = event.title,
-                        meta = event.date,
-                        detail = event.detail,
+                if (eventAnnouncements.isEmpty()) {
+                    Text(
+                        text = "No announcements at the moment.",
+                        color = Muted,
+                        fontSize = 14.sp,
                     )
+                } else {
+                    eventAnnouncements.forEach { event ->
+                        ScheduleRow(
+                            title = event.title,
+                            meta = event.date,
+                            detail = event.detail,
+                        )
+                    }
                 }
             }
         }
