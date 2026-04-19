@@ -74,14 +74,24 @@ actual fun updateNotificationSchedules(
     }
 
     if (preferences.classesAndEvents) {
-        scheduleNotification(
-            context = context,
-            alarmManager = alarmManager,
-            requestCode = COMMUNITY_NOTIFICATION_REQUEST_CODE,
-            triggerAtMillis = nextTriggerMillis(9 * 60),
-            title = "Darul Ummah Shadwell",
-            message = "Check class updates in the app.",
-        )
+        classSchedule.forEachIndexed { index, session ->
+            val day = session.reminderIsoDayOfWeek
+            val minute = session.reminderMinuteOfDay
+            if (day != null && minute != null) {
+                scheduleNotification(
+                    context = context,
+                    alarmManager = alarmManager,
+                    requestCode = classReminderRequestCode(index),
+                    triggerAtMillis = nextWeeklyReminderTriggerMillis(
+                        isoDayOfWeek = day,
+                        minuteOfDay = minute,
+                        offsetMinutes = CLASS_ALERT_OFFSET_MINUTES,
+                    ),
+                    title = "${session.title} in $CLASS_ALERT_OFFSET_MINUTES minutes",
+                    message = "Starts at ${session.time}.",
+                )
+            }
+        }
     }
 }
 
@@ -91,7 +101,7 @@ actual fun loadNotificationPreferences(): NotificationPreferences {
     return NotificationPreferences(
         prayerReminders = preferences.getBoolean("prayerReminders", true),
         countdownAlerts = preferences.getBoolean("countdownAlerts", false),
-        classesAndEvents = preferences.getBoolean("classesAndEvents", false),
+        classesAndEvents = preferences.getBoolean("classesAndEvents", true),
     )
 }
 
@@ -157,7 +167,9 @@ private fun cancelScheduledNotifications(
                 add(countdownRequestCode(index, offsetMinutes))
             }
         }
-        add(COMMUNITY_NOTIFICATION_REQUEST_CODE)
+        repeat(classSchedule.size) { index ->
+            add(classReminderRequestCode(index))
+        }
     }
     requestCodes.forEach { requestCode ->
         val pendingIntent = PendingIntent.getBroadcast(
@@ -196,6 +208,28 @@ private fun nextPrayerReminderTriggerMillis(
     return nextTriggerMillis(reminderMinuteOfDay)
 }
 
+private fun nextWeeklyReminderTriggerMillis(
+    isoDayOfWeek: Int,
+    minuteOfDay: Int,
+    offsetMinutes: Int,
+): Long {
+    val reminderMinuteOfDay = minuteOfDay - offsetMinutes
+    val normalizedMinuteOfDay = ((reminderMinuteOfDay % (24 * 60)) + (24 * 60)) % (24 * 60)
+    val now = Calendar.getInstance()
+    val trigger = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, normalizedMinuteOfDay / 60)
+        set(Calendar.MINUTE, normalizedMinuteOfDay % 60)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        val targetCalendarDay = ((isoDayOfWeek % 7) + 1)
+        set(Calendar.DAY_OF_WEEK, targetCalendarDay)
+        if (!after(now)) {
+            add(Calendar.WEEK_OF_YEAR, 1)
+        }
+    }
+    return trigger.timeInMillis
+}
+
 private fun timeToMinuteOfDay(time: String): Int {
     val parts = time.split(":")
     return parts[0].toInt() * 60 + parts[1].toInt()
@@ -208,8 +242,13 @@ private fun countdownRequestCode(
     return COUNTDOWN_NOTIFICATION_REQUEST_CODE + prayerIndex * 100 + offsetMinutes
 }
 
+private fun classReminderRequestCode(classIndex: Int): Int {
+    return CLASS_NOTIFICATION_REQUEST_CODE + classIndex
+}
+
 private const val COUNTDOWN_NOTIFICATION_REQUEST_CODE = 20_000
 private const val LEGACY_PRAYER_NOTIFICATION_REQUEST_CODE = 10_000
-private const val COMMUNITY_NOTIFICATION_REQUEST_CODE = 30_000
+private const val CLASS_NOTIFICATION_REQUEST_CODE = 30_000
 private const val NOTIFICATION_PREFERENCES_NAME = "darul_ummah_notification_preferences"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
+private const val CLASS_ALERT_OFFSET_MINUTES = 30

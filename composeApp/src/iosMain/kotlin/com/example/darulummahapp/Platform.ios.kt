@@ -111,13 +111,20 @@ private fun scheduleAuthorizedNotifications(
     }
 
     if (preferences.classesAndEvents) {
-        scheduleNotification(
-            identifier = "community",
-            prayerMinuteOfDay = 9 * 60,
-            offsetMinutes = 0,
-            title = "Darul Ummah Shadwell",
-            message = "Check class updates in the app.",
-        )
+        classSchedule.forEachIndexed { index, session ->
+            val day = session.reminderIsoDayOfWeek
+            val minute = session.reminderMinuteOfDay
+            if (day != null && minute != null) {
+                scheduleWeeklyNotification(
+                    identifier = classIdentifier(index),
+                    isoDayOfWeek = day,
+                    minuteOfDay = minute,
+                    offsetMinutes = CLASS_ALERT_OFFSET_MINUTES,
+                    title = "${session.title} in $CLASS_ALERT_OFFSET_MINUTES minutes",
+                    message = "Starts at ${session.time}.",
+                )
+            }
+        }
     }
 }
 
@@ -182,6 +189,35 @@ private fun scheduleNotification(
     UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(request) { }
 }
 
+private fun scheduleWeeklyNotification(
+    identifier: String,
+    isoDayOfWeek: Int,
+    minuteOfDay: Int,
+    offsetMinutes: Int,
+    title: String,
+    message: String,
+) {
+    val content = UNMutableNotificationContent().apply {
+        setTitle(title)
+        setBody(message)
+        setSound(UNNotificationSound.defaultSound)
+    }
+    val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(
+        timeInterval = secondsUntilWeeklyReminder(
+            isoDayOfWeek = isoDayOfWeek,
+            minuteOfDay = minuteOfDay,
+            offsetMinutes = offsetMinutes,
+        ).toDouble(),
+        repeats = false,
+    )
+    val request = UNNotificationRequest.requestWithIdentifier(
+        identifier = identifier,
+        content = content,
+        trigger = trigger,
+    )
+    UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(request) { }
+}
+
 private fun notificationIdentifiers(): List<String> {
     return buildList {
         repeat(5) { index ->
@@ -190,7 +226,9 @@ private fun notificationIdentifiers(): List<String> {
                 add(countdownIdentifier(index, offsetMinutes))
             }
         }
-        add("community")
+        repeat(classSchedule.size) { index ->
+            add(classIdentifier(index))
+        }
     }
 }
 
@@ -212,6 +250,25 @@ private fun secondsUntilReminder(
     }
 }
 
+private fun secondsUntilWeeklyReminder(
+    isoDayOfWeek: Int,
+    minuteOfDay: Int,
+    offsetMinutes: Int,
+): Int {
+    val reminderSecondOfDay = normalizedMinuteOfDay(minuteOfDay - offsetMinutes) * 60
+    val currentSecond = currentSecondOfDay()
+    val todayIsoDay = currentIsoDayOfWeek()
+    val dayDelta = when {
+        isoDayOfWeek > todayIsoDay -> isoDayOfWeek - todayIsoDay
+        isoDayOfWeek < todayIsoDay -> 7 - (todayIsoDay - isoDayOfWeek)
+        reminderSecondOfDay > currentSecond -> 0
+        else -> 7
+    }
+    return dayDelta * 24 * 60 * 60 + (reminderSecondOfDay - currentSecond).let { delta ->
+        if (delta >= 0) delta else delta + 24 * 60 * 60
+    }
+}
+
 private fun normalizedMinuteOfDay(minuteOfDay: Int): Int {
     return ((minuteOfDay % (24 * 60)) + (24 * 60)) % (24 * 60)
 }
@@ -223,5 +280,10 @@ private fun countdownIdentifier(
     return "countdown-$prayerIndex-$offsetMinutes"
 }
 
+private fun classIdentifier(classIndex: Int): String {
+    return "class-$classIndex"
+}
+
 private const val NOTIFICATION_PREFERENCES_SAVED_KEY = "notificationPreferencesSaved"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
+private const val CLASS_ALERT_OFFSET_MINUTES = 30

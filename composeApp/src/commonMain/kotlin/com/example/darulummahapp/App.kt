@@ -100,6 +100,8 @@ data class ClassSession(
     val day: String,
     val time: String,
     val audience: String,
+    val reminderIsoDayOfWeek: Int? = null,
+    val reminderMinuteOfDay: Int? = null,
 )
 
 data class EventAnnouncement(
@@ -133,13 +135,66 @@ private val mosqueContact = MosqueContact(
 internal val defaultNotificationPreferences = NotificationPreferences(
     prayerReminders = true,
     countdownAlerts = false,
-    classesAndEvents = false,
+    classesAndEvents = true,
 )
 
-private val classSchedule = listOf(
-    ClassSession("Quran Class", "Monday and Wednesday", "18:30", "Children"),
-    ClassSession("Tajweed Circle", "Friday", "19:15", "Adults"),
-    ClassSession("Sisters Study", "Saturday", "11:00", "Sisters"),
+internal val classSchedule = listOf(
+    ClassSession(
+        title = "Dars of Sahih Al-Bukhari",
+        day = "Tuesday Evenings",
+        time = "19:00",
+        audience = "Community",
+        reminderIsoDayOfWeek = 2,
+        reminderMinuteOfDay = 19 * 60,
+    ),
+    ClassSession(
+        title = "Women's Tafsir (Bangla)",
+        day = "Wednesday",
+        time = "11:00 - 12:30",
+        audience = "Sisters",
+        reminderIsoDayOfWeek = 3,
+        reminderMinuteOfDay = 11 * 60,
+    ),
+    ClassSession(
+        title = "Islamic Studies",
+        day = "Wednesday Evenings",
+        time = "19:00",
+        audience = "Community",
+        reminderIsoDayOfWeek = 3,
+        reminderMinuteOfDay = 19 * 60,
+    ),
+    ClassSession(
+        title = "Women's Tarteel Class",
+        day = "Thursday Evenings",
+        time = "19:00",
+        audience = "Sisters",
+        reminderIsoDayOfWeek = 4,
+        reminderMinuteOfDay = 19 * 60,
+    ),
+    ClassSession(
+        title = "Hadeeth Class",
+        day = "Thursday Evenings",
+        time = "19:00",
+        audience = "Community",
+        reminderIsoDayOfWeek = 4,
+        reminderMinuteOfDay = 19 * 60,
+    ),
+    ClassSession(
+        title = "Tarteel Class",
+        day = "Friday Evenings",
+        time = "19:00",
+        audience = "Community",
+        reminderIsoDayOfWeek = 5,
+        reminderMinuteOfDay = 19 * 60,
+    ),
+    ClassSession(
+        title = "Bangla Tafseer",
+        day = "Sunday Evenings",
+        time = "19:00",
+        audience = "Community",
+        reminderIsoDayOfWeek = 7,
+        reminderMinuteOfDay = 19 * 60,
+    ),
 )
 
 private val eventAnnouncements = emptyList<EventAnnouncement>()
@@ -678,7 +733,7 @@ private fun ClassesAndEventsScreen() {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionTitle("Custom alerts")
                 Text(
-                    text = "Quran class reminders are set for 30 minutes before the class starts.",
+                    text = "Class reminders are set for 30 minutes before each listed class.",
                     color = Muted,
                     fontSize = 14.sp,
                 )
