@@ -15,7 +15,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         AndroidAppContext.applicationContext = applicationContext
+        AndroidAnnouncementImagePicker.register(this)
         requestNotificationPermission()
+        requestLocationPermissions()
 
         setContent {
             App()
@@ -35,8 +37,26 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun requestLocationPermissions() {
+        val missingPermissions = buildList {
+            if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                add(Manifest.permission.ACCESS_FINE_LOCATION)
+            }
+            if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
+        }
+        if (missingPermissions.isNotEmpty()) {
+            requestPermissions(
+                missingPermissions.toTypedArray(),
+                LOCATION_PERMISSIONS_REQUEST_CODE,
+            )
+        }
+    }
+
     companion object {
         private const val POST_NOTIFICATIONS_REQUEST_CODE = 1001
+        private const val LOCATION_PERMISSIONS_REQUEST_CODE = 1002
     }
 }
 

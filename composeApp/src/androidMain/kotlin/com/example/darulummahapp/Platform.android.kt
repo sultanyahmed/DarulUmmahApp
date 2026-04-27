@@ -2,8 +2,10 @@ package com.example.darulummahapp
 
 import android.app.AlarmManager
 import android.app.PendingIntent
+import android.content.ActivityNotFoundException
 import android.content.Context
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -36,6 +38,18 @@ actual fun currentSecondOfDay(): Int {
 actual fun currentIsoDayOfWeek(): Int {
     val dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
     return ((dayOfWeek + 5) % 7) + 1
+}
+
+actual fun currentDateTimeComponents(): DateTimeComponents {
+    val calendar = Calendar.getInstance()
+    return DateTimeComponents(
+        year = calendar.get(Calendar.YEAR),
+        month = calendar.get(Calendar.MONTH) + 1,
+        day = calendar.get(Calendar.DAY_OF_MONTH),
+        hour = calendar.get(Calendar.HOUR_OF_DAY),
+        minute = calendar.get(Calendar.MINUTE),
+        second = calendar.get(Calendar.SECOND),
+    )
 }
 
 actual fun updateNotificationSchedules(
@@ -115,8 +129,37 @@ actual fun saveNotificationPreferences(preferences: NotificationPreferences) {
         .apply()
 }
 
-actual suspend fun fetchDarulUmmahHomeHtml(): String = withContext(Dispatchers.IO) {
-    val connection = URL("http://www.darulummah.org.uk/").openConnection() as HttpURLConnection
+actual fun openPhoneNumber(phoneNumber: String) {
+    openIntent(
+        Intent(Intent.ACTION_DIAL, Uri.parse("tel:${phoneNumber.filter { it.isDigit() || it == '+' }}")),
+    )
+}
+
+actual fun openEmailAddress(emailAddress: String) {
+    openIntent(
+        Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:$emailAddress")),
+    )
+}
+
+actual fun openMapDirections(address: String) {
+    val encodedAddress = Uri.encode(address)
+    val mapIntent = Intent(
+        Intent.ACTION_VIEW,
+        Uri.parse("geo:0,0?q=$encodedAddress"),
+    )
+    openIntent(Intent.createChooser(mapIntent, "Open directions"))
+}
+
+actual suspend fun fetchDarulUmmahHomeHtml(): String {
+    return fetchUrlString("http://www.darulummah.org.uk/")
+}
+
+actual suspend fun fetchDarulUmmahPrayerTimetableHtml(): String {
+    return fetchUrlString("http://www.darulummah.org.uk/mosque/prayer-timetable")
+}
+
+private suspend fun fetchUrlString(urlString: String): String = withContext(Dispatchers.IO) {
+    val connection = URL(urlString).openConnection() as HttpURLConnection
     try {
         connection.connectTimeout = 10_000
         connection.readTimeout = 10_000
@@ -124,6 +167,21 @@ actual suspend fun fetchDarulUmmahHomeHtml(): String = withContext(Dispatchers.I
         connection.inputStream.bufferedReader().use { it.readText() }
     } finally {
         connection.disconnect()
+    }
+}
+
+private fun openIntent(intent: Intent) {
+    val context = AndroidAppContext.applicationContext ?: return
+    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching {
+        context.startActivity(intent)
+    }.recoverCatching {
+        if (it is ActivityNotFoundException) {
+            val fallbackIntent = Intent(Intent.ACTION_VIEW, intent.data).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(fallbackIntent)
+        } else {
+            throw it
+        }
     }
 }
 

@@ -1,6 +1,8 @@
 package com.example.darulummahapp
 
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarUnitHour
 import platform.Foundation.NSCalendarUnitMinute
@@ -13,10 +15,21 @@ import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.create
+import platform.Foundation.stringByAddingPercentEncodingWithAllowedCharacters
+import platform.Foundation.URLQueryAllowedCharacterSet
 import platform.Foundation.dataWithContentsOfURL
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
+import platform.UIKit.UIActivityViewController
+import platform.UIKit.UIAlertAction
+import platform.UIKit.UIAlertController
+import platform.UIKit.UIAlertControllerStyleActionSheet
+import platform.UIKit.UIAlertActionStyleCancel
+import platform.UIKit.UIAlertActionStyleDefault
+import platform.UIKit.UIApplication
 import platform.UIKit.UIDevice
+import platform.UIKit.UIViewController
+import platform.UIKit.popoverPresentationController
 import platform.UserNotifications.UNAuthorizationOptionAlert
 import platform.UserNotifications.UNAuthorizationOptionBadge
 import platform.UserNotifications.UNAuthorizationOptionSound
@@ -56,6 +69,24 @@ actual fun currentIsoDayOfWeek(): Int {
         fromDate = NSDate(),
     )
     return ((components.weekday.toInt() + 5) % 7) + 1
+}
+
+actual fun currentDateTimeComponents(): DateTimeComponents {
+    val components = NSCalendar.currentCalendar.components(
+        NSCalendarUnitHour or NSCalendarUnitMinute or NSCalendarUnitSecond or
+            platform.Foundation.NSCalendarUnitDay or
+            platform.Foundation.NSCalendarUnitMonth or
+            platform.Foundation.NSCalendarUnitYear,
+        fromDate = NSDate(),
+    )
+    return DateTimeComponents(
+        year = components.year.toInt(),
+        month = components.month.toInt(),
+        day = components.day.toInt(),
+        hour = components.hour.toInt(),
+        minute = components.minute.toInt(),
+        second = components.second.toInt(),
+    )
 }
 
 actual fun updateNotificationSchedules(
@@ -120,7 +151,7 @@ private fun scheduleAuthorizedNotifications(
                     isoDayOfWeek = day,
                     minuteOfDay = minute,
                     offsetMinutes = CLASS_ALERT_OFFSET_MINUTES,
-                    title = "${session.title} in $CLASS_ALERT_OFFSET_MINUTES minutes",
+                    title = "${session.title} in 1 hour",
                     message = "Starts at ${session.time}.",
                 )
             }
@@ -148,14 +179,89 @@ actual fun saveNotificationPreferences(preferences: NotificationPreferences) {
     defaults.setBool(preferences.classesAndEvents, "classesAndEvents")
 }
 
+actual fun openPhoneNumber(phoneNumber: String) {
+    openUrl("tel:${phoneNumber.filter { it.isDigit() || it == '+' }}")
+}
+
+actual fun openEmailAddress(emailAddress: String) {
+    openUrl("mailto:$emailAddress")
+}
+
+actual fun openMapDirections(address: String) {
+    val encodedAddress = address.stringByAddingPercentEncodingWithAllowedCharacters(URLQueryAllowedCharacterSet)
+        ?: return
+    val appleMapsUrl = "http://maps.apple.com/?q=$encodedAddress"
+    val googleMapsUrl = "comgooglemaps://?q=$encodedAddress&directionsmode=driving"
+    val actionSheet = UIAlertController.alertControllerWithTitle(
+        title = "Open Directions",
+        message = address,
+        preferredStyle = UIAlertControllerStyleActionSheet,
+    )
+    actionSheet.addAction(
+        UIAlertAction.actionWithTitle(
+            title = "Apple Maps",
+            style = UIAlertActionStyleDefault,
+        ) { _ ->
+            openUrl(appleMapsUrl)
+        },
+    )
+    if (canOpenUrl(googleMapsUrl)) {
+        actionSheet.addAction(
+            UIAlertAction.actionWithTitle(
+                title = "Google Maps",
+                style = UIAlertActionStyleDefault,
+            ) { _ ->
+                openUrl(googleMapsUrl)
+            },
+        )
+    }
+    actionSheet.addAction(
+        UIAlertAction.actionWithTitle(
+            title = "Cancel",
+            style = UIAlertActionStyleCancel,
+            handler = null,
+        ),
+    )
+    topViewController()?.presentViewController(actionSheet, animated = true, completion = null)
+}
+
 @OptIn(BetaInteropApi::class)
 actual suspend fun fetchDarulUmmahHomeHtml(): String {
-    val url = NSURL.URLWithString("http://www.darulummah.org.uk/")
+    return fetchUrlString("http://www.darulummah.org.uk/")
+}
+
+@OptIn(BetaInteropApi::class)
+actual suspend fun fetchDarulUmmahPrayerTimetableHtml(): String {
+    return fetchUrlString("http://www.darulummah.org.uk/mosque/prayer-timetable")
+}
+
+@OptIn(BetaInteropApi::class)
+private suspend fun fetchUrlString(urlString: String): String {
+    val url = NSURL.URLWithString(urlString)
         ?: error("Invalid Darul Ummah URL")
-    val data = NSData.dataWithContentsOfURL(url)
-        ?: error("Could not load Darul Ummah timetable")
+    val data = withContext(Dispatchers.Default) {
+        NSData.dataWithContentsOfURL(url)
+    } ?: error("Could not load Darul Ummah timetable")
     return NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
         ?: error("Could not decode Darul Ummah timetable")
+}
+
+private fun openUrl(urlString: String) {
+    val url = NSURL.URLWithString(urlString) ?: return
+    UIApplication.sharedApplication.openURL(url)
+}
+
+private fun canOpenUrl(urlString: String): Boolean {
+    val url = NSURL.URLWithString(urlString) ?: return false
+    return UIApplication.sharedApplication.canOpenURL(url)
+}
+
+private fun topViewController(): UIViewController? {
+    var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
+    while (controller?.presentedViewController != null) {
+        controller = controller.presentedViewController
+    }
+    return controller
 }
 
 private data class ScheduledPrayer(
@@ -286,4 +392,4 @@ private fun classIdentifier(classIndex: Int): String {
 
 private const val NOTIFICATION_PREFERENCES_SAVED_KEY = "notificationPreferencesSaved"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
-private const val CLASS_ALERT_OFFSET_MINUTES = 30
+private const val CLASS_ALERT_OFFSET_MINUTES = 60

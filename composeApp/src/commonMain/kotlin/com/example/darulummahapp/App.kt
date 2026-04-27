@@ -1,6 +1,7 @@
 package com.example.darulummahapp
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -12,34 +13,53 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeContentPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -47,6 +67,7 @@ import androidx.compose.ui.unit.sp
 import darulummahapp.composeapp.generated.resources.Res
 import darulummahapp.composeapp.generated.resources.darul_ummah_logo
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
 
 private val SiteBlack = Color(0xFF1F1E1E)
@@ -60,6 +81,24 @@ private val Ink = Color(0xFF1E2A24)
 private val Muted = Color(0xFF65746D)
 private val Page = SiteBlack
 private val Alert = Color(0xFFE2554A)
+private val QiblaSurface = Color(0xFF103B38)
+private val QiblaSurfaceDeep = Color(0xFF0A2524)
+private val QiblaCream = Color(0xFFF7F1DD)
+private val QiblaSand = Color(0xFFE6D6AC)
+private val QiblaBronze = Color(0xFFB69642)
+private val announcementTimeOptions = buildList<String> {
+    for (hour in 0..23) {
+        for (minute in listOf(0, 15, 30, 45)) {
+            add(timeOptionLabel(hour, minute))
+        }
+    }
+}
+
+private fun timeOptionLabel(hour: Int, minute: Int): String {
+    val hourText = if (hour < 10) "0$hour" else hour.toString()
+    val minuteText = if (minute < 10) "0$minute" else minute.toString()
+    return "$hourText:$minuteText"
+}
 
 data class PrayerTime(
     val name: String,
@@ -103,12 +142,6 @@ data class ClassSession(
     val audience: String,
     val reminderIsoDayOfWeek: Int? = null,
     val reminderMinuteOfDay: Int? = null,
-)
-
-data class EventAnnouncement(
-    val title: String,
-    val date: String,
-    val detail: String,
 )
 
 data class CalendarPrayerTime(
@@ -227,13 +260,12 @@ internal val classSchedule = listOf(
     ),
 )
 
-private val eventAnnouncements = emptyList<EventAnnouncement>()
-
 @Composable
 @Preview
 fun App() {
     MaterialTheme {
-        var screen by remember { mutableStateOf(AppScreen.Home) }
+        val announcementRepository = remember { AnnouncementRepository() }
+        var screen by rememberSaveable { mutableStateOf(AppScreen.Home) }
         var minuteOfDay by remember { mutableIntStateOf(currentMinuteOfDay()) }
         var secondOfDay by remember { mutableIntStateOf(currentSecondOfDay()) }
         var isoDayOfWeek by remember { mutableIntStateOf(currentIsoDayOfWeek()) }
@@ -244,11 +276,16 @@ fun App() {
         var calendarTimetable by remember { mutableStateOf<List<CalendarPrayerTime>>(emptyList()) }
         var calendarStatus by remember { mutableStateOf("Open the full calendar timetable to load yearly prayer times.") }
         var calendarRefreshKey by remember { mutableIntStateOf(0) }
+        var announcements by remember { mutableStateOf<List<Announcement>>(emptyList()) }
+        var announcementStatus by remember { mutableStateOf("Connecting live announcements...") }
+        var announcementSubmitStatus by remember { mutableStateOf<String?>(null) }
+        var announcementDeleteStatus by remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
             while (true) {
-                minuteOfDay = currentMinuteOfDay()
-                secondOfDay = currentSecondOfDay()
+                val now = currentDateTimeComponents()
+                minuteOfDay = now.hour * 60 + now.minute
+                secondOfDay = now.hour * 60 * 60 + now.minute * 60 + now.second
                 isoDayOfWeek = currentIsoDayOfWeek()
                 delay(1_000)
             }
@@ -270,13 +307,14 @@ fun App() {
             if (calendarRefreshKey == 0) return@LaunchedEffect
             calendarStatus = "Loading full calendar timetable from darulummah.org.uk"
             runCatching {
-                parseFullCalendarTimetable(fetchDarulUmmahPrayerTimetableHtml())
-            }.onSuccess { timetable ->
+                val html = fetchDarulUmmahPrayerTimetableHtml()
+                publishedCalendarYear(html) to parseFullCalendarTimetable(html)
+            }.onSuccess { (publishedYear, timetable) ->
                 calendarTimetable = timetable
                 calendarStatus = if (timetable.isEmpty()) {
                     "No timetable rows were found on the Darul Ummah timetable page."
                 } else {
-                    "Updated from darulummah.org.uk"
+                    "Updated from darulummah.org.uk for $publishedYear"
                 }
             }.onFailure {
                 calendarStatus = "Could not load the full calendar timetable."
@@ -290,6 +328,13 @@ fun App() {
                 timetable = prayerTimetable,
                 isoDayOfWeek = isoDayOfWeek,
             )
+        }
+
+        LaunchedEffect(announcementRepository) {
+            announcementRepository.observeAnnouncements().collect { feed ->
+                announcements = feed.announcements
+                announcementStatus = feed.status
+            }
         }
 
         Surface(
@@ -324,7 +369,31 @@ fun App() {
                         updateStatus = updateStatus,
                         onRefresh = { refreshKey++ },
                     )
-                    AppScreen.Classes -> ClassesAndEventsScreen()
+                    AppScreen.Classes -> ClassesAndEventsScreen(
+                        announcements = announcements,
+                        announcementStatus = announcementStatus,
+                        submitStatus = announcementSubmitStatus,
+                        onSubmitAnnouncement = { draft, password ->
+                            announcementSubmitStatus = "Sending announcement..."
+                            try {
+                                announcementRepository.submitAnnouncement(draft, password)
+                                announcementSubmitStatus = "Announcement sent."
+                            } catch (error: Throwable) {
+                                announcementSubmitStatus = error.message ?: "Could not send announcement."
+                            }
+                        },
+                        deleteStatus = announcementDeleteStatus,
+                        onDeleteAnnouncement = { announcement, password ->
+                            announcementDeleteStatus = "Deleting announcement..."
+                            try {
+                                announcementRepository.deleteAnnouncement(announcement.id, password)
+                                announcements = announcements.filterNot { it.id == announcement.id }
+                                announcementDeleteStatus = "Announcement deleted."
+                            } catch (error: Throwable) {
+                                announcementDeleteStatus = error.message ?: "Could not delete announcement."
+                            }
+                        },
+                    )
                     AppScreen.Settings -> SettingsScreen(
                         notificationPreferences = notificationPreferences,
                         onNotificationPreferencesChanged = { notificationPreferences = it },
@@ -700,9 +769,24 @@ private fun ContactCard(contact: MosqueContact) {
     InfoCard {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionTitle("Contact Darul Ummah Shadwell")
-            ContactRow("Call", contact.phone)
-            ContactRow("Email", contact.email)
-            ContactRow("Visit", contact.address)
+            ContactRow(
+                label = "Call",
+                value = contact.phone,
+                actionLabel = "Tap to call",
+                onClick = { openPhoneNumber(contact.phone) },
+            )
+            ContactRow(
+                label = "Email",
+                value = contact.email,
+                actionLabel = "Tap to email",
+                onClick = { openEmailAddress(contact.email) },
+            )
+            ContactRow(
+                label = "Visit",
+                value = contact.address,
+                actionLabel = "Tap for directions",
+                onClick = { openMapDirections(contact.address) },
+            )
         }
     }
 }
@@ -711,18 +795,34 @@ private fun ContactCard(contact: MosqueContact) {
 private fun ContactRow(
     label: String,
     value: String,
+    actionLabel: String,
+    onClick: () -> Unit,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .background(Color(0xFFF7FAF8))
+            .border(1.dp, Color(0xFFE1E8E3), RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
     ) {
-        Text(
-            text = label,
-            color = Green900,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Column {
+            Text(
+                text = label,
+                color = Green900,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            Text(
+                text = actionLabel,
+                color = Green700,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
         Text(
             text = value,
             modifier = Modifier.weight(1f).padding(start = 14.dp),
@@ -766,16 +866,27 @@ private fun SettingsScreen(
     onNotificationPreferencesChanged: (NotificationPreferences) -> Unit,
     onFullCalendarClick: () -> Unit,
 ) {
+    val qiblaCompassController = remember { createQiblaCompassController() }
+    val qiblaState by qiblaCompassController.state.collectAsState()
+
+    DisposableEffect(qiblaCompassController) {
+        qiblaCompassController.start()
+        onDispose {
+            qiblaCompassController.stop()
+        }
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         NotificationSettings(
             preferences = notificationPreferences,
             onPreferencesChanged = onNotificationPreferencesChanged,
         )
+        QiblaCompassCard(state = qiblaState)
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("Prayer calendar")
                 Text(
-                    text = "Load the full Darul Ummah prayer timetable for the calendar year.",
+                    text = "Load the Darul Ummah timetable year currently published on the website. When the site switches to a new year, the app follows it.",
                     color = Muted,
                     fontSize = 14.sp,
                 )
@@ -784,6 +895,361 @@ private fun SettingsScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun QiblaCompassCard(state: QiblaCompassState) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(28.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+        border = BorderStroke(1.dp, Color(0xFF315956)),
+    ) {
+        Box(
+            modifier = Modifier
+                .background(
+                    Brush.verticalGradient(
+                        colors = listOf(QiblaSurface, QiblaSurfaceDeep),
+                    ),
+                )
+                .padding(18.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(
+                    text = "Qibla Compass",
+                    color = QiblaCream,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Black,
+                )
+                Text(
+                    text = "Use your device heading and current location to align with the direction of prayer.",
+                    color = QiblaSand.copy(alpha = 0.86f),
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp,
+                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(
+                            Brush.horizontalGradient(
+                                colors = listOf(
+                                    Green900.copy(alpha = 0.95f),
+                                    lerp(Green700, QiblaBronze, 0.35f),
+                                    Green900.copy(alpha = 0.98f),
+                                ),
+                            ),
+                        )
+                        .border(1.dp, QiblaSand.copy(alpha = 0.35f), RoundedCornerShape(22.dp))
+                        .padding(horizontal = 14.dp, vertical = 18.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ) {
+                        QiblaCompassDial(
+                            headingDegrees = state.headingDegrees,
+                            qiblaBearingDegrees = state.qiblaBearingDegrees,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(290.dp),
+                        )
+                        Text(
+                            text = state.turnDegrees?.let { "${kotlin.math.abs(it).toInt()}°" } ?: "--",
+                            color = QiblaCream,
+                            fontSize = 44.sp,
+                            fontWeight = FontWeight.Light,
+                        )
+                        Text(
+                            text = formatQiblaLocationLabel(state),
+                            color = QiblaSand.copy(alpha = 0.92f),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+                Text(
+                    text = state.status,
+                    color = QiblaSand.copy(alpha = 0.82f),
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp,
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    CompassFact(
+                        label = "Facing",
+                        value = state.headingDegrees?.let { "${it.toInt()}°" } ?: "--",
+                        modifier = Modifier.weight(1f),
+                    )
+                    CompassFact(
+                        label = "Qibla",
+                        value = state.qiblaBearingDegrees?.let { "${it.toInt()}°" } ?: "--",
+                        modifier = Modifier.weight(1f),
+                    )
+                    CompassFact(
+                        label = "Turn",
+                        value = state.turnDegrees?.let { turnLabel(it) } ?: "--",
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+        }
+    }
+}
+
+private fun formatQiblaLocationLabel(state: QiblaCompassState): String {
+    val latitude = state.latitude
+    val longitude = state.longitude
+    if (latitude == null || longitude == null) return "Waiting for location"
+    return "${formatCoordinate(latitude, true)}  ${formatCoordinate(longitude, false)}"
+}
+
+private fun formatCoordinate(value: Double, isLatitude: Boolean): String {
+    val direction = when {
+        isLatitude && value >= 0 -> "N"
+        isLatitude -> "S"
+        value >= 0 -> "E"
+        else -> "W"
+    }
+    return "${"%.4f".format(kotlin.math.abs(value))}°$direction"
+}
+
+@Composable
+private fun QiblaCompassDial(
+    headingDegrees: Double?,
+    qiblaBearingDegrees: Double?,
+    modifier: Modifier = Modifier,
+) {
+    Box(
+        modifier = modifier,
+        contentAlignment = Alignment.Center,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(250.dp)
+                .shadow(18.dp, CircleShape, ambientColor = Color.Black.copy(alpha = 0.3f))
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(QiblaCream, Color(0xFFE9DEC2), Color(0xFFB9A16A)),
+                    ),
+                ),
+        )
+        Canvas(modifier = Modifier.size(236.dp)) {
+            val radius = size.minDimension / 2f * 0.97f
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(QiblaCream, Color(0xFFF1E7CB), Color(0xFFD4BF8B)),
+                ),
+                radius = radius,
+            )
+            drawCircle(
+                color = QiblaSand.copy(alpha = 0.9f),
+                radius = radius,
+                style = Stroke(width = 7.dp.toPx()),
+            )
+            drawCircle(
+                color = QiblaBronze.copy(alpha = 0.18f),
+                radius = radius * 0.64f,
+            )
+            drawCircle(
+                color = Color(0xFFE0D3AF),
+                radius = radius * 0.64f,
+                style = Stroke(width = 1.dp.toPx()),
+            )
+            repeat(72) { index ->
+                val angle = index * 5f
+                val tickLength = when {
+                    index % 18 == 0 -> 18.dp.toPx()
+                    index % 9 == 0 -> 12.dp.toPx()
+                    else -> 5.dp.toPx()
+                }
+                rotate(degrees = angle) {
+                    drawLine(
+                        color = if (index % 9 == 0) QiblaBronze else QiblaBronze.copy(alpha = 0.5f),
+                        start = center.copy(y = center.y - radius + 14.dp.toPx()),
+                        end = center.copy(y = center.y - radius + 14.dp.toPx() + tickLength),
+                        strokeWidth = if (index % 18 == 0) 3.dp.toPx() else 1.5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
+            repeat(4) { index ->
+                val angle = index * 90f
+                rotate(degrees = angle) {
+                    drawLine(
+                        color = QiblaBronze.copy(alpha = 0.6f),
+                        start = center.copy(y = center.y - radius + 28.dp.toPx()),
+                        end = center.copy(y = center.y - radius + 52.dp.toPx()),
+                        strokeWidth = 5.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
+            if (headingDegrees != null) {
+                rotate(degrees = -headingDegrees.toFloat()) {
+                    drawLine(
+                        color = Color(0xFF8C1214),
+                        start = center.copy(y = center.y + 10.dp.toPx()),
+                        end = center.copy(y = center.y - radius + 34.dp.toPx()),
+                        strokeWidth = 7.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = Color.White.copy(alpha = 0.9f),
+                        start = center.copy(y = center.y - 10.dp.toPx()),
+                        end = center.copy(y = center.y + radius - 30.dp.toPx()),
+                        strokeWidth = 6.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                }
+            }
+            if (headingDegrees != null && qiblaBearingDegrees != null) {
+                val relativeQibla = normalizeSignedDegrees(qiblaBearingDegrees - headingDegrees).toFloat()
+                rotate(degrees = relativeQibla) {
+                    drawLine(
+                        color = Color.Black.copy(alpha = 0.25f),
+                        start = center.copy(x = center.x + 3.dp.toPx(), y = center.y + 6.dp.toPx()),
+                        end = center.copy(x = center.x + 3.dp.toPx(), y = center.y - radius + 34.dp.toPx()),
+                        strokeWidth = 8.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = Gold,
+                        start = center.copy(y = center.y + 4.dp.toPx()),
+                        end = center.copy(y = center.y - radius + 30.dp.toPx()),
+                        strokeWidth = 7.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    drawCircle(
+                        color = Gold,
+                        radius = 8.dp.toPx(),
+                        center = center.copy(y = center.y - radius + 30.dp.toPx()),
+                    )
+                    drawKaabaMarker(
+                        centerX = center.x,
+                        centerY = center.y - radius + 4.dp.toPx(),
+                        width = 26.dp.toPx(),
+                        height = 24.dp.toPx(),
+                    )
+                }
+            }
+            drawCircle(
+                color = QiblaSurfaceDeep,
+                radius = 8.dp.toPx(),
+            )
+            drawCircle(
+                color = QiblaCream,
+                radius = 3.dp.toPx(),
+            )
+        }
+        Column(
+            modifier = Modifier.size(236.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("N", color = QiblaBronze, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.weight(1f))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("W", color = QiblaBronze, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text("E", color = QiblaBronze, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            }
+            Spacer(modifier = Modifier.weight(1f))
+            Text("S", color = QiblaBronze, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+private fun androidx.compose.ui.graphics.drawscope.DrawScope.drawKaabaMarker(
+    centerX: Float,
+    centerY: Float,
+    width: Float,
+    height: Float,
+) {
+    val left = centerX - width / 2f
+    val top = centerY - height / 2f
+    val right = centerX + width / 2f
+    val bottom = centerY + height / 2f
+    val sideInset = width * 0.16f
+    val face = Path().apply {
+        moveTo(left + sideInset, top)
+        lineTo(right, top + height * 0.1f)
+        lineTo(right, bottom)
+        lineTo(left + sideInset, bottom - height * 0.1f)
+        close()
+    }
+    val side = Path().apply {
+        moveTo(left, top + height * 0.12f)
+        lineTo(left + sideInset, top)
+        lineTo(left + sideInset, bottom - height * 0.1f)
+        lineTo(left, bottom)
+        close()
+    }
+    val bandTop = top + height * 0.22f
+    val bandBottom = top + height * 0.35f
+    val faceBand = Path().apply {
+        moveTo(left + sideInset, bandTop)
+        lineTo(right, bandTop + height * 0.04f)
+        lineTo(right, bandBottom + height * 0.04f)
+        lineTo(left + sideInset, bandBottom)
+        close()
+    }
+    val sideBand = Path().apply {
+        moveTo(left, bandTop + height * 0.04f)
+        lineTo(left + sideInset, bandTop)
+        lineTo(left + sideInset, bandBottom)
+        lineTo(left, bandBottom + height * 0.04f)
+        close()
+    }
+    drawPath(path = side, color = Color(0xFF28211A))
+    drawPath(path = face, color = Color(0xFF3A3126))
+    drawPath(path = sideBand, color = Gold.copy(alpha = 0.9f))
+    drawPath(path = faceBand, color = Gold)
+}
+
+@Composable
+private fun CompassFact(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(18.dp))
+            .background(Color.White.copy(alpha = 0.06f))
+            .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
+            .padding(horizontal = 10.dp, vertical = 12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text(
+            text = label,
+            color = QiblaSand.copy(alpha = 0.82f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
+        Text(
+            text = value,
+            color = QiblaCream,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+private fun turnLabel(turnDegrees: Double): String {
+    val rounded = kotlin.math.abs(turnDegrees).toInt()
+    return when {
+        rounded < 3 -> "Aligned"
+        turnDegrees > 0 -> "$rounded° right"
+        else -> "$rounded° left"
     }
 }
 
@@ -818,6 +1284,7 @@ private fun FullCalendarTimetableScreen(
             }
         }
         if (timetable.isNotEmpty()) {
+            val today = currentDateTimeComponents()
             val allCalendarDays = timetable
                 .mapNotNull { prayerTime ->
                     parseCalendarDate(prayerTime.date)?.let { date ->
@@ -830,11 +1297,16 @@ private fun FullCalendarTimetableScreen(
                         .thenBy { it.date.dayOfMonth },
                 )
             val monthIndexes = allCalendarDays.map { it.date.monthIndex }.distinct()
+            val selectedToday = allCalendarDays.firstOrNull { day ->
+                day.date.year == today.year &&
+                    day.date.monthIndex == today.month &&
+                    day.date.dayOfMonth == today.day
+            }
             var visibleMonthIndex by remember(timetable) {
-                mutableIntStateOf(monthIndexes.firstOrNull() ?: 1)
+                mutableIntStateOf(selectedToday?.date?.monthIndex ?: monthIndexes.firstOrNull() ?: 1)
             }
             var selectedDay by remember(timetable) {
-                mutableStateOf(allCalendarDays.firstOrNull())
+                mutableStateOf(selectedToday ?: allCalendarDays.firstOrNull())
             }
             val visibleMonthDays = allCalendarDays.filter { it.date.monthIndex == visibleMonthIndex }
 
@@ -1123,7 +1595,14 @@ private fun fullMonthName(monthIndex: Int): String {
 }
 
 @Composable
-private fun ClassesAndEventsScreen() {
+private fun ClassesAndEventsScreen(
+    announcements: List<Announcement>,
+    announcementStatus: String,
+    submitStatus: String?,
+    onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
+    deleteStatus: String?,
+    onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1140,23 +1619,32 @@ private fun ClassesAndEventsScreen() {
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("Announcements")
-                if (eventAnnouncements.isEmpty()) {
+                if (announcementStatus.isNotBlank()) {
+                    Text(
+                        text = announcementStatus,
+                        color = Alert,
+                        fontSize = 13.sp,
+                    )
+                }
+                if (announcements.isEmpty()) {
                     Text(
                         text = "No announcements at the moment.",
                         color = Muted,
                         fontSize = 14.sp,
                     )
                 } else {
-                    eventAnnouncements.forEach { event ->
-                        ScheduleRow(
-                            title = event.title,
-                            meta = event.date,
-                            detail = event.detail,
-                        )
-                    }
+                    DeleteAnnouncementControls(
+                        announcements = announcements,
+                        deleteStatus = deleteStatus,
+                        onDeleteAnnouncement = onDeleteAnnouncement,
+                    )
                 }
             }
         }
+        AddAnnouncementCard(
+            submitStatus = submitStatus,
+            onSubmitAnnouncement = onSubmitAnnouncement,
+        )
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionTitle("Custom alerts")
@@ -1171,10 +1659,295 @@ private fun ClassesAndEventsScreen() {
 }
 
 @Composable
+private fun DeleteAnnouncementControls(
+    announcements: List<Announcement>,
+    deleteStatus: String?,
+    onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var adminPassword by remember { mutableStateOf("") }
+    var pendingDeleteId by remember { mutableStateOf<String?>(null) }
+    var localError by remember { mutableStateOf<String?>(null) }
+
+    Text(
+        text = "Enter the admin password below to enable manual deletion before expiry.",
+        color = Muted,
+        fontSize = 13.sp,
+    )
+    OutlinedTextField(
+        value = adminPassword,
+        onValueChange = {
+            adminPassword = it
+            if (it.isNotBlank()) {
+                localError = null
+            }
+        },
+        label = { Text("Delete password") },
+        modifier = Modifier.fillMaxWidth(),
+        colors = announcementFieldColors(),
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+    )
+    localError?.let {
+        Text(
+            text = it,
+            color = Alert,
+            fontSize = 13.sp,
+        )
+    }
+    deleteStatus?.let {
+        Text(
+            text = it,
+            color = if (it.contains("deleted", ignoreCase = true)) Green700 else Muted,
+            fontSize = 13.sp,
+        )
+    }
+    announcements.forEach { announcement ->
+        AnnouncementRow(
+            announcement = announcement,
+            isDeleting = pendingDeleteId == announcement.id,
+            onDelete = {
+                if (adminPassword.isBlank()) {
+                    localError = "Enter the admin password to delete an announcement."
+                } else {
+                    localError = null
+                    pendingDeleteId = announcement.id
+                    scope.launch {
+                        try {
+                            onDeleteAnnouncement(announcement, adminPassword)
+                        } finally {
+                            pendingDeleteId = null
+                        }
+                    }
+                }
+            },
+        )
+    }
+}
+
+@Composable
+@OptIn(ExperimentalMaterial3Api::class)
+private fun AddAnnouncementCard(
+    submitStatus: String?,
+    onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    var title by remember { mutableStateOf("") }
+    var description by remember { mutableStateOf("") }
+    var selectedImage by remember { mutableStateOf<PickedAnnouncementImage?>(null) }
+    var eventDate by remember { mutableStateOf("") }
+    var eventTime by remember { mutableStateOf(announcementTimeOptions.first()) }
+    var password by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf<String?>(null) }
+    var isSubmitting by remember { mutableStateOf(false) }
+    var timeMenuExpanded by remember { mutableStateOf(false) }
+
+    InfoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionTitle("Add announcement")
+            Text(
+                text = "Enter the admin password to publish a live announcement. The chosen date and time are when this announcement expires. You can attach an image directly from this device.",
+                color = Muted,
+                fontSize = 13.sp,
+            )
+            OutlinedTextField(
+                value = title,
+                onValueChange = { title = it },
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = announcementFieldColors(),
+                singleLine = true,
+            )
+            OutlinedTextField(
+                value = description,
+                onValueChange = { description = it },
+                label = { Text("Description") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = announcementFieldColors(),
+                minLines = 3,
+            )
+            OutlinedTextField(
+                value = selectedImage?.fileName ?: "",
+                onValueChange = {},
+                label = { Text("Selected photo") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = announcementFieldColors(),
+                singleLine = true,
+                readOnly = true,
+                enabled = false,
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Button(
+                    onClick = {
+                        scope.launch {
+                            runCatching { pickAnnouncementImage() }
+                                .onSuccess {
+                                    selectedImage = it
+                                    if (it != null) {
+                                        localError = null
+                                    }
+                                }
+                                .onFailure {
+                                    localError = it.message ?: "Could not open the image picker."
+                                }
+                        }
+                    },
+                    enabled = !isSubmitting,
+                ) {
+                    Text(if (selectedImage == null) "Choose image" else "Change image")
+                }
+                if (selectedImage != null) {
+                    TextButton(
+                        onClick = { selectedImage = null },
+                        enabled = !isSubmitting,
+                    ) {
+                        Text("Remove")
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = eventDate,
+                    onValueChange = { eventDate = it },
+                    label = { Text("Expiry date DD/MM/YYYY") },
+                    modifier = Modifier.weight(1f),
+                    colors = announcementFieldColors(),
+                    singleLine = true,
+                )
+                ExposedDropdownMenuBox(
+                    expanded = timeMenuExpanded,
+                    onExpandedChange = { timeMenuExpanded = it },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    OutlinedTextField(
+                        value = eventTime,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Expiry time") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = timeMenuExpanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        colors = announcementFieldColors(),
+                        singleLine = true,
+                    )
+                    ExposedDropdownMenu(
+                        expanded = timeMenuExpanded,
+                        onDismissRequest = { timeMenuExpanded = false },
+                    ) {
+                        announcementTimeOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    eventTime = option
+                                    timeMenuExpanded = false
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+            OutlinedTextField(
+                value = password,
+                onValueChange = { password = it },
+                label = { Text("Admin password") },
+                modifier = Modifier.fillMaxWidth(),
+                colors = announcementFieldColors(),
+                singleLine = true,
+                visualTransformation = PasswordVisualTransformation(),
+            )
+            localError?.let {
+                Text(
+                    text = it,
+                    color = Alert,
+                    fontSize = 13.sp,
+                )
+            }
+            submitStatus?.let {
+                Text(
+                    text = it,
+                    color = if (it.contains("sent", ignoreCase = true)) Green700 else Muted,
+                    fontSize = 13.sp,
+                )
+            }
+            Button(
+                onClick = {
+                    val draft = buildAnnouncementDraft(
+                        title = title,
+                        description = description,
+                        eventDate = eventDate,
+                        eventTime = eventTime,
+                        selectedImage = selectedImage,
+                    )
+                    if (draft == null) {
+                        localError = "Fill in title, description, date, and time using the requested formats."
+                        return@Button
+                    }
+                    if (password.isBlank()) {
+                        localError = "Enter the admin password to publish the announcement."
+                        return@Button
+                    }
+                    localError = null
+                    isSubmitting = true
+                    scope.launch {
+                        try {
+                            onSubmitAnnouncement(draft, password)
+                            title = ""
+                            description = ""
+                            selectedImage = null
+                            eventDate = ""
+                            eventTime = announcementTimeOptions.first()
+                            password = ""
+                        } finally {
+                            isSubmitting = false
+                        }
+                    }
+                },
+                enabled = !isSubmitting,
+            ) {
+                Text(if (isSubmitting) "Sending..." else "Publish announcement")
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnnouncementRow(
+    announcement: Announcement,
+    isDeleting: Boolean = false,
+    onDelete: (() -> Unit)? = null,
+) {
+    ScheduleRow(
+        title = announcement.title,
+        meta = "${announcement.eventDate} at ${announcement.eventTime}",
+        detail = announcement.description,
+        footer = announcement.mediaUrl?.takeIf { it.isNotBlank() }?.let { "Photo attached" },
+        action = onDelete?.let { deleteAction ->
+            {
+                TextButton(
+                    onClick = deleteAction,
+                    enabled = !isDeleting,
+                ) {
+                    Text(if (isDeleting) "Deleting..." else "Delete")
+                }
+            }
+        },
+    )
+}
+
+@Composable
 private fun ScheduleRow(
     title: String,
     meta: String,
     detail: String,
+    footer: String? = null,
+    action: (@Composable () -> Unit)? = null,
 ) {
     Column(
         modifier = Modifier
@@ -1202,8 +1975,52 @@ private fun ScheduleRow(
             color = Muted,
             fontSize = 13.sp,
         )
+        footer?.let {
+            Text(
+                text = it,
+                color = Green700,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        action?.invoke()
     }
 }
+
+@Composable
+private fun announcementFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedBorderColor = Green700,
+    unfocusedBorderColor = Color(0xFFD2DDD8),
+    focusedLabelColor = Green700,
+    unfocusedLabelColor = Muted,
+    cursorColor = Green700,
+)
+
+private fun buildAnnouncementDraft(
+    title: String,
+    description: String,
+    eventDate: String,
+    eventTime: String,
+    selectedImage: PickedAnnouncementImage?,
+): AnnouncementDraft? {
+    val trimmedTitle = title.trim()
+    val trimmedDescription = description.trim()
+    val trimmedDate = eventDate.trim()
+    val trimmedTime = eventTime.trim()
+    val validDate = Regex("""\d{2}/\d{2}/\d{4}""").matches(trimmedDate)
+    val validTime = Regex("""\d{2}:\d{2}""").matches(trimmedTime)
+    if (trimmedTitle.isBlank() || trimmedDescription.isBlank() || !validDate || !validTime) return null
+    return AnnouncementDraft(
+        title = trimmedTitle,
+        description = trimmedDescription,
+        eventDate = trimmedDate,
+        eventTime = trimmedTime,
+        mediaBase64 = selectedImage?.let { encodeAnnouncementImageBase64(it.bytes) },
+        mediaMimeType = selectedImage?.mimeType,
+        mediaFileName = selectedImage?.fileName,
+    )
+}
+
 
 @Composable
 private fun SectionTitle(text: String) {
@@ -1276,12 +2093,16 @@ private val monthNames = listOf(
 )
 
 internal fun parseFullCalendarTimetable(html: String): List<CalendarPrayerTime> {
-    val calendarYear = extractCalendarYear(html)
+    val calendarYear = publishedCalendarYear(html)
     return Regex("<tr[\\s\\S]*?</tr>", RegexOption.IGNORE_CASE)
         .findAll(html)
         .mapNotNull { match -> parseCalendarPrayerRow(match.value, calendarYear) }
         .distinctBy { it.date }
         .toList()
+}
+
+private fun publishedCalendarYear(html: String): Int {
+    return extractCalendarYear(html) ?: currentDateTimeComponents().year
 }
 
 private fun parseCalendarPrayerRow(
@@ -1370,8 +2191,8 @@ private data class CalendarPrayerValues(
 )
 
 internal fun parseDarulUmmahTimetable(html: String): PrayerTimetable {
-    parseTodayPrayerTimetableFromCalendar(html)?.let { return it }
     parseCurrentPrayerGrid(html)?.let { return it }
+    parseTodayPrayerTimetableFromCalendar(html)?.let { return it }
 
     val timetableBody = html
         .substringAfter("<tbody class=\"timetable-font\"", missingDelimiterValue = "")
