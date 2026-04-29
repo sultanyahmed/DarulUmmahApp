@@ -7,6 +7,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.GeomagneticField
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -25,6 +26,7 @@ private class AndroidQiblaCompassController : QiblaCompassController {
     private var lastHeadingDegrees: Double? = null
     private var lastLatitude: Double? = null
     private var lastLongitude: Double? = null
+    private var lastAltitudeMeters: Double? = null
     private var isStarted = false
 
     private val sensorListener = object : SensorEventListener {
@@ -34,7 +36,8 @@ private class AndroidQiblaCompassController : QiblaCompassController {
             SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values)
             val orientation = FloatArray(3)
             SensorManager.getOrientation(rotationMatrix, orientation)
-            val headingDegrees = normalizeDegrees(Math.toDegrees(orientation[0].toDouble()))
+            val magneticHeadingDegrees = normalizeDegrees(Math.toDegrees(orientation[0].toDouble()))
+            val headingDegrees = magneticHeadingDegrees.toTrueNorthHeadingDegrees()
             lastHeadingDegrees = headingDegrees
             publishState("Compass ready. Follow the gold Qibla marker.")
         }
@@ -46,6 +49,7 @@ private class AndroidQiblaCompassController : QiblaCompassController {
         override fun onLocationChanged(location: Location) {
             lastLatitude = location.latitude
             lastLongitude = location.longitude
+            lastAltitudeMeters = if (location.hasAltitude()) location.altitude else 0.0
             publishState("Location found. Follow the gold Qibla marker.")
         }
 
@@ -110,6 +114,7 @@ private class AndroidQiblaCompassController : QiblaCompassController {
             if (lastKnownLocation != null) {
                 lastLatitude = lastKnownLocation.latitude
                 lastLongitude = lastKnownLocation.longitude
+                lastAltitudeMeters = if (lastKnownLocation.hasAltitude()) lastKnownLocation.altitude else 0.0
             }
             runCatching {
                 manager.requestLocationUpdates(
@@ -160,6 +165,19 @@ private class AndroidQiblaCompassController : QiblaCompassController {
     private fun hasLocationPermission(context: Context): Boolean {
         return context.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
             context.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    private fun Double.toTrueNorthHeadingDegrees(): Double {
+        val latitude = lastLatitude ?: return this
+        val longitude = lastLongitude ?: return this
+        val altitudeMeters = lastAltitudeMeters ?: 0.0
+        val declinationDegrees = GeomagneticField(
+            latitude.toFloat(),
+            longitude.toFloat(),
+            altitudeMeters.toFloat(),
+            System.currentTimeMillis(),
+        ).declination.toDouble()
+        return normalizeDegrees(this + declinationDegrees)
     }
 }
 
