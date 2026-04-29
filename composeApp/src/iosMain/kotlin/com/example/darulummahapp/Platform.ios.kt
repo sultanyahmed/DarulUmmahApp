@@ -1,6 +1,7 @@
 package com.example.darulummahapp
 
 import kotlinx.cinterop.BetaInteropApi
+import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import platform.Foundation.NSCalendar
@@ -22,6 +23,7 @@ import platform.darwin.dispatch_get_main_queue
 import platform.UIKit.UIActivityViewController
 import platform.UIKit.UIAlertAction
 import platform.UIKit.UIAlertController
+import platform.UIKit.UIAlertControllerStyleAlert
 import platform.UIKit.UIAlertControllerStyleActionSheet
 import platform.UIKit.UIAlertActionStyleCancel
 import platform.UIKit.UIAlertActionStyleDefault
@@ -200,30 +202,50 @@ actual fun saveNotificationPreferences(preferences: NotificationPreferences) {
 }
 
 actual fun openPhoneNumber(phoneNumber: String) {
-    openUrl("tel:${phoneNumber.filter { it.isDigit() || it == '+' }}")
+    openUrl(
+        urlString = "tel:${phoneNumber.filter { it.isDigit() || it == '+' }}",
+        failureMessage = "Phone calls are unavailable on this device.",
+    )
 }
 
 actual fun openEmailAddress(emailAddress: String) {
-    openUrl("mailto:$emailAddress")
+    openUrl(
+        urlString = "mailto:${emailAddress.trim()}",
+        failureMessage = "Email is unavailable on this device.",
+    )
 }
 
+@OptIn(ExperimentalForeignApi::class)
 actual fun openMapDirections(address: String) {
     val encodedAddress = address
         .replace(" ", "+")
         .replace(",", "%2C")
     val appleMapsUrl = "http://maps.apple.com/?q=$encodedAddress"
     val googleMapsUrl = "comgooglemaps://?q=$encodedAddress&directionsmode=driving"
+    val presentingController = topPresentedViewController()
+    if (presentingController == null) {
+        openUrl(
+            urlString = appleMapsUrl,
+            failureMessage = "Maps is unavailable on this device.",
+        )
+        return
+    }
     val actionSheet = UIAlertController.alertControllerWithTitle(
         title = "Open Directions",
         message = address,
         preferredStyle = UIAlertControllerStyleActionSheet,
     )
+    actionSheet.popoverPresentationController?.sourceView = presentingController.view
+    actionSheet.popoverPresentationController?.sourceRect = presentingController.view.bounds
     actionSheet.addAction(
         UIAlertAction.actionWithTitle(
             title = "Apple Maps",
             style = UIAlertActionStyleDefault,
         ) { _ ->
-            openUrl(appleMapsUrl)
+            openUrl(
+                urlString = appleMapsUrl,
+                failureMessage = "Apple Maps is unavailable on this device.",
+            )
         },
     )
     if (canOpenUrl(googleMapsUrl)) {
@@ -232,7 +254,10 @@ actual fun openMapDirections(address: String) {
                 title = "Google Maps",
                 style = UIAlertActionStyleDefault,
             ) { _ ->
-                openUrl(googleMapsUrl)
+                openUrl(
+                    urlString = googleMapsUrl,
+                    failureMessage = "Google Maps is unavailable on this device.",
+                )
             },
         )
     }
@@ -243,7 +268,7 @@ actual fun openMapDirections(address: String) {
             handler = null,
         ),
     )
-    topPresentedViewController()?.presentViewController(actionSheet, animated = true, completion = null)
+    presentingController.presentViewController(actionSheet, animated = true, completion = null)
 }
 
 @OptIn(BetaInteropApi::class)
@@ -267,14 +292,37 @@ private suspend fun fetchUrlString(urlString: String): String {
         ?: error("Could not decode Darul Ummah timetable")
 }
 
-private fun openUrl(urlString: String) {
+private fun openUrl(
+    urlString: String,
+    failureMessage: String,
+) {
     val url = NSURL.URLWithString(urlString) ?: return
-    UIApplication.sharedApplication.openURL(url)
+    val didOpen = UIApplication.sharedApplication.openURL(url)
+    if (!didOpen) {
+        showUnavailableAlert(failureMessage)
+    }
 }
 
 private fun canOpenUrl(urlString: String): Boolean {
     val url = NSURL.URLWithString(urlString) ?: return false
     return UIApplication.sharedApplication.canOpenURL(url)
+}
+
+private fun showUnavailableAlert(message: String) {
+    val presentingController = topPresentedViewController() ?: return
+    val alert = UIAlertController.alertControllerWithTitle(
+        title = "Unavailable",
+        message = message,
+        preferredStyle = UIAlertControllerStyleAlert,
+    )
+    alert.addAction(
+        UIAlertAction.actionWithTitle(
+            title = "OK",
+            style = UIAlertActionStyleDefault,
+            handler = null,
+        ),
+    )
+    presentingController.presentViewController(alert, animated = true, completion = null)
 }
 
 private data class ScheduledPrayer(
@@ -502,7 +550,6 @@ private fun saveScheduledAnnouncementIdentifiers(identifiers: List<String>) {
 
 private fun loadScheduledAnnouncementIdentifiers(): List<String> {
     val raw = NSUserDefaults.standardUserDefaults.stringForKey(SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY)
-        ?.toString()
         .orEmpty()
     if (raw.isBlank()) return emptyList()
     return raw.split(",").filter { it.isNotBlank() }

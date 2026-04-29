@@ -102,7 +102,7 @@ private fun NSData.toByteArray(): ByteArray {
     return result
 }
 
-@OptIn(ExperimentalForeignApi::class)
+@OptIn(ExperimentalForeignApi::class, BetaInteropApi::class)
 private fun ByteArray.toNSData(): NSData {
     return usePinned {
         NSData.create(bytes = it.addressOf(0), length = size.toULong())

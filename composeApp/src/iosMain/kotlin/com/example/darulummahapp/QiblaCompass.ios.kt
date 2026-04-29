@@ -28,13 +28,13 @@ private class IOSQiblaCompassController : QiblaCompassController {
 
     private val delegate = object : NSObject(), CLLocationManagerDelegateProtocol {
         override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
-            val heading = if (didUpdateHeading.trueHeading >= 0.0) {
-                didUpdateHeading.trueHeading
+            if (didUpdateHeading.trueHeading >= 0.0) {
+                lastHeadingDegrees = normalizeDegrees(didUpdateHeading.trueHeading)
+                publishState("Compass ready. Follow the gold Qibla marker.")
             } else {
-                didUpdateHeading.magneticHeading
+                lastHeadingDegrees = null
+                publishState("Move your iPhone in a figure-eight to calibrate true north.")
             }
-            lastHeadingDegrees = normalizeDegrees(heading)
-            publishState("Compass ready. Follow the gold Qibla marker.")
         }
 
         @OptIn(ExperimentalForeignApi::class)
@@ -83,7 +83,13 @@ private class IOSQiblaCompassController : QiblaCompassController {
                     locationManager.startUpdatingHeading()
                 }
                 locationManager.startUpdatingLocation()
-                publishState("Finding your location and compass heading...")
+                publishState(
+                    if (CLLocationManager.headingAvailable()) {
+                        "Finding your location and calibrating true north..."
+                    } else {
+                        "Finding your location and compass heading..."
+                    },
+                )
             }
             kCLAuthorizationStatusDenied,
             kCLAuthorizationStatusRestricted -> {
@@ -123,7 +129,7 @@ private class IOSQiblaCompassController : QiblaCompassController {
             longitude = longitude,
             status = status,
             isLocationPermissionGranted = true,
-            isHeadingAvailable = CLLocationManager.headingAvailable(),
+            isHeadingAvailable = headingDegrees != null,
         )
     }
 }
