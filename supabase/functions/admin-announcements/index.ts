@@ -7,6 +7,8 @@ const corsHeaders = {
 const announcementTimeZone = "Europe/London";
 const fallbackAnnouncementAdminPassword = "A4ZHkdpZij18B7W1";
 
+type AnnouncementRequestBody = Record<string, unknown>;
+
 async function cleanupExpiredAnnouncements(supabase: ReturnType<typeof createClient>) {
   const nowIso = new Date().toISOString();
   const { data: expiredRows, error: fetchExpiredError } = await supabase
@@ -140,6 +142,35 @@ function parseLondonDateTimeAsUtc(dateText: string, timeText: string) {
   return matchesLocalTime ? candidate : null;
 }
 
+async function readRequestBody(request: Request): Promise<AnnouncementRequestBody> {
+  const rawBody = await request.text();
+  if (!rawBody.trim()) {
+    return {};
+  }
+
+  const parsed = JSON.parse(rawBody);
+  if (typeof parsed === "string") {
+    const nested = JSON.parse(parsed);
+    return isRecord(nested) ? nested : {};
+  }
+
+  return isRecord(parsed) ? parsed : {};
+}
+
+function isRecord(value: unknown): value is AnnouncementRequestBody {
+  return typeof value === "object" && value !== null;
+}
+
+function readBodyString(body: AnnouncementRequestBody, ...keys: string[]) {
+  for (const key of keys) {
+    const value = body[key];
+    if (typeof value === "string") {
+      return value.trim();
+    }
+  }
+  return "";
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -165,10 +196,10 @@ Deno.serve(async (request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
   await cleanupExpiredAnnouncements(supabase);
-  const body = await request.json();
+  const body = await readRequestBody(request);
 
   if (request.method === "DELETE") {
-    const announcementId = String(body.announcementId ?? "").trim();
+    const announcementId = readBodyString(body, "announcementId", "announcement_id", "id");
     if (!announcementId) {
       return new Response(JSON.stringify({ error: "Announcement ID is required." }), {
         status: 400,
@@ -192,15 +223,15 @@ Deno.serve(async (request) => {
     });
   }
 
-  const title = String(body.title ?? "").trim();
-  const description = String(body.description ?? "").trim();
-  const startDate = String(body.startDate ?? "").trim();
-  const startTime = String(body.startTime ?? "").trim();
-  const eventDate = String(body.eventDate ?? "").trim();
-  const eventTime = String(body.eventTime ?? "").trim();
-  const mediaBase64 = String(body.mediaBase64 ?? "").trim();
-  const mediaMimeType = String(body.mediaMimeType ?? "").trim();
-  const mediaFileName = String(body.mediaFileName ?? "").trim();
+  const title = readBodyString(body, "title");
+  const description = readBodyString(body, "description");
+  const startDate = readBodyString(body, "startDate", "start_date");
+  const startTime = readBodyString(body, "startTime", "start_time");
+  const eventDate = readBodyString(body, "eventDate", "event_date", "expiryDate", "expiry_date");
+  const eventTime = readBodyString(body, "eventTime", "event_time", "expiryTime", "expiry_time");
+  const mediaBase64 = readBodyString(body, "mediaBase64", "media_base64");
+  const mediaMimeType = readBodyString(body, "mediaMimeType", "media_mime_type");
+  const mediaFileName = readBodyString(body, "mediaFileName", "media_file_name");
 
   if (!title || !description || !startDate || !startTime || !eventDate || !eventTime) {
     return new Response(JSON.stringify({ error: "Title, description, start date/time, and expiry date/time are required." }), {
