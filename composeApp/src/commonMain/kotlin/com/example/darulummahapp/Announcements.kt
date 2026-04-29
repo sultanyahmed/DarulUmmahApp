@@ -37,6 +37,8 @@ data class Announcement(
     val title: String,
     val description: String,
     @SerialName("media_url") val mediaUrl: String? = null,
+    @SerialName("start_date") val startDate: String,
+    @SerialName("start_time") val startTime: String,
     @SerialName("event_date") val eventDate: String,
     @SerialName("event_time") val eventTime: String,
     @SerialName("created_at") val createdAt: String,
@@ -46,6 +48,8 @@ data class Announcement(
 data class AnnouncementDraft(
     val title: String,
     val description: String,
+    val startDate: String,
+    val startTime: String,
     val eventDate: String,
     val eventTime: String,
     val mediaBase64: String? = null,
@@ -65,6 +69,8 @@ expect fun platformDecodeBase64(value: ByteArray): ByteArray
 private data class AnnouncementFunctionRequest(
     val title: String,
     val description: String,
+    val startDate: String,
+    val startTime: String,
     val eventDate: String,
     val eventTime: String,
     val mediaBase64: String? = null,
@@ -143,6 +149,8 @@ class AnnouncementRepository(
                     AnnouncementFunctionRequest(
                         title = draft.title,
                         description = draft.description,
+                        startDate = draft.startDate,
+                        startTime = draft.startTime,
                         eventDate = draft.eventDate,
                         eventTime = draft.eventTime,
                         mediaBase64 = draft.mediaBase64,

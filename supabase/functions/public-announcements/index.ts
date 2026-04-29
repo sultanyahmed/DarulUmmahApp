@@ -61,7 +61,7 @@ Deno.serve(async (request) => {
   await cleanupExpiredAnnouncements(supabase);
   const { data, error } = await supabase
     .from("announcements")
-    .select("id,title,description,media_url,event_date,event_time,created_at")
+    .select("id,title,description,media_url,start_date,start_time,event_date,event_time,created_at")
     .gt("expires_at", new Date().toISOString())
     .order("created_at", { ascending: false });
 

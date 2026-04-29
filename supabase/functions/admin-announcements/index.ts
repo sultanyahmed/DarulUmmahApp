@@ -82,9 +82,9 @@ async function deleteAnnouncementById(
   }
 }
 
-function parseExpiryAsUtc(eventDate: string, eventTime: string) {
-  const dateMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(eventDate);
-  const timeMatch = /^(\d{2}):(\d{2})$/.exec(eventTime);
+function parseLondonDateTimeAsUtc(dateText: string, timeText: string) {
+  const dateMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateText);
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(timeText);
   if (!dateMatch || !timeMatch) {
     return null;
   }
@@ -194,14 +194,16 @@ Deno.serve(async (request) => {
 
   const title = String(body.title ?? "").trim();
   const description = String(body.description ?? "").trim();
+  const startDate = String(body.startDate ?? "").trim();
+  const startTime = String(body.startTime ?? "").trim();
   const eventDate = String(body.eventDate ?? "").trim();
   const eventTime = String(body.eventTime ?? "").trim();
   const mediaBase64 = String(body.mediaBase64 ?? "").trim();
   const mediaMimeType = String(body.mediaMimeType ?? "").trim();
   const mediaFileName = String(body.mediaFileName ?? "").trim();
 
-  if (!title || !description || !eventDate || !eventTime) {
-    return new Response(JSON.stringify({ error: "Title, description, date, and time are required." }), {
+  if (!title || !description || !startDate || !startTime || !eventDate || !eventTime) {
+    return new Response(JSON.stringify({ error: "Title, description, start date/time, and expiry date/time are required." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -209,10 +211,17 @@ Deno.serve(async (request) => {
 
   let mediaUrl: string | null = null;
   let mediaPath: string | null = null;
-  const expiresAt = parseExpiryAsUtc(eventDate, eventTime);
+  const startsAt = parseLondonDateTimeAsUtc(startDate, startTime);
+  const expiresAt = parseLondonDateTimeAsUtc(eventDate, eventTime);
 
-  if (!expiresAt || Number.isNaN(expiresAt.getTime())) {
-    return new Response(JSON.stringify({ error: "Date must use DD/MM/YYYY and time must use HH:MM." }), {
+  if (!startsAt || !expiresAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(expiresAt.getTime())) {
+    return new Response(JSON.stringify({ error: "Start and expiry must use DD/MM/YYYY dates and HH:MM times." }), {
+      status: 400,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+  if (expiresAt.getTime() <= startsAt.getTime()) {
+    return new Response(JSON.stringify({ error: "Expiry time must be after the start time." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -251,6 +260,9 @@ Deno.serve(async (request) => {
     description,
     media_url: mediaUrl,
     media_path: mediaPath,
+    start_date: startDate,
+    start_time: startTime,
+    start_at: startsAt.toISOString(),
     event_date: eventDate,
     event_time: eventTime,
     expires_at: expiresAt.toISOString(),

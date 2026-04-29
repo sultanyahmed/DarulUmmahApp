@@ -5,17 +5,17 @@ import kotlinx.cinterop.useContents
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import platform.CoreLocation.CLAuthorizationStatusAuthorizedAlways
-import platform.CoreLocation.CLAuthorizationStatusAuthorizedWhenInUse
-import platform.CoreLocation.CLAuthorizationStatusDenied
-import platform.CoreLocation.CLAuthorizationStatusNotDetermined
-import platform.CoreLocation.CLAuthorizationStatusRestricted
 import platform.CoreLocation.CLHeading
 import platform.CoreLocation.CLLocation
 import platform.CoreLocation.CLLocationManager
 import platform.CoreLocation.CLLocationManagerDelegateProtocol
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedAlways
+import platform.CoreLocation.kCLAuthorizationStatusAuthorizedWhenInUse
+import platform.CoreLocation.kCLAuthorizationStatusDenied
+import platform.CoreLocation.kCLAuthorizationStatusNotDetermined
+import platform.CoreLocation.kCLAuthorizationStatusRestricted
 import platform.CoreLocation.kCLLocationAccuracyHundredMeters
-import platform.Foundation.NSObject
+import platform.darwin.NSObject
 
 private class IOSQiblaCompassController : QiblaCompassController {
     private val mutableState = MutableStateFlow(QiblaCompassState())
@@ -71,22 +71,22 @@ private class IOSQiblaCompassController : QiblaCompassController {
 
     private fun updateAuthorizationState() {
         when (CLLocationManager.authorizationStatus()) {
-            CLAuthorizationStatusNotDetermined -> {
+            kCLAuthorizationStatusNotDetermined -> {
                 mutableState.value = QiblaCompassState(
                     status = "Allow location access to calculate the Qibla from your current position.",
                 )
                 locationManager.requestWhenInUseAuthorization()
             }
-            CLAuthorizationStatusAuthorizedAlways,
-            CLAuthorizationStatusAuthorizedWhenInUse -> {
+            kCLAuthorizationStatusAuthorizedAlways,
+            kCLAuthorizationStatusAuthorizedWhenInUse -> {
                 if (CLLocationManager.headingAvailable()) {
                     locationManager.startUpdatingHeading()
                 }
                 locationManager.startUpdatingLocation()
                 publishState("Finding your location and compass heading...")
             }
-            CLAuthorizationStatusDenied,
-            CLAuthorizationStatusRestricted -> {
+            kCLAuthorizationStatusDenied,
+            kCLAuthorizationStatusRestricted -> {
                 mutableState.value = QiblaCompassState(
                     status = "Enable Location access in iPhone Settings to show the Qibla direction.",
                     isLocationPermissionGranted = false,

@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Calendar
+import kotlin.math.absoluteValue
 
 internal object AndroidAppContext {
     var applicationContext: Context? = null
@@ -56,6 +57,7 @@ actual fun updateNotificationSchedules(
     preferences: NotificationPreferences,
     timetable: PrayerTimetable,
     isoDayOfWeek: Int,
+    announcements: List<Announcement>,
 ) {
     val context = AndroidAppContext.applicationContext ?: return
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -106,6 +108,25 @@ actual fun updateNotificationSchedules(
                 )
             }
         }
+        val announcementRequestCodes = announcements.mapNotNull { announcement ->
+            val triggerAtMillis = announcementReminderTriggerMillis(
+                date = announcement.startDate,
+                time = announcement.startTime,
+            ) ?: return@mapNotNull null
+            val requestCode = announcementReminderRequestCode(announcement.id)
+            scheduleNotification(
+                context = context,
+                alarmManager = alarmManager,
+                requestCode = requestCode,
+                triggerAtMillis = triggerAtMillis,
+                title = "${announcement.title} in 1 hour",
+                message = "Starts at ${announcement.startTime}.",
+            )
+            requestCode
+        }
+        saveScheduledAnnouncementRequestCodes(context, announcementRequestCodes)
+    } else {
+        saveScheduledAnnouncementRequestCodes(context, emptyList())
     }
 }
 
@@ -228,6 +249,7 @@ private fun cancelScheduledNotifications(
         repeat(classSchedule.size) { index ->
             add(classReminderRequestCode(index))
         }
+        addAll(loadScheduledAnnouncementRequestCodes(context))
     }
     requestCodes.forEach { requestCode ->
         val pendingIntent = PendingIntent.getBroadcast(
@@ -288,6 +310,31 @@ private fun nextWeeklyReminderTriggerMillis(
     return trigger.timeInMillis
 }
 
+private fun announcementReminderTriggerMillis(
+    date: String,
+    time: String,
+): Long? {
+    val dateParts = date.split("/")
+    val timeParts = time.split(":")
+    if (dateParts.size != 3 || timeParts.size != 2) return null
+    val day = dateParts[0].toIntOrNull() ?: return null
+    val month = dateParts[1].toIntOrNull() ?: return null
+    val year = dateParts[2].toIntOrNull() ?: return null
+    val hour = timeParts[0].toIntOrNull() ?: return null
+    val minute = timeParts[1].toIntOrNull() ?: return null
+    val trigger = Calendar.getInstance().apply {
+        set(Calendar.YEAR, year)
+        set(Calendar.MONTH, month - 1)
+        set(Calendar.DAY_OF_MONTH, day)
+        set(Calendar.HOUR_OF_DAY, hour)
+        set(Calendar.MINUTE, minute)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+        add(Calendar.MINUTE, -ANNOUNCEMENT_ALERT_OFFSET_MINUTES)
+    }
+    return trigger.timeInMillis.takeIf { it > System.currentTimeMillis() }
+}
+
 private fun timeToMinuteOfDay(time: String): Int {
     val parts = time.split(":")
     return parts[0].toInt() * 60 + parts[1].toInt()
@@ -304,9 +351,31 @@ private fun classReminderRequestCode(classIndex: Int): Int {
     return CLASS_NOTIFICATION_REQUEST_CODE + classIndex
 }
 
+private fun announcementReminderRequestCode(announcementId: String): Int {
+    return ANNOUNCEMENT_NOTIFICATION_REQUEST_CODE + (announcementId.hashCode().absoluteValue % 10_000)
+}
+
+private fun saveScheduledAnnouncementRequestCodes(context: Context, requestCodes: List<Int>) {
+    context.getSharedPreferences(NOTIFICATION_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putString(SCHEDULED_ANNOUNCEMENT_CODES_KEY, requestCodes.joinToString(","))
+        .apply()
+}
+
+private fun loadScheduledAnnouncementRequestCodes(context: Context): List<Int> {
+    val raw = context.getSharedPreferences(NOTIFICATION_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        .getString(SCHEDULED_ANNOUNCEMENT_CODES_KEY, "")
+        .orEmpty()
+    if (raw.isBlank()) return emptyList()
+    return raw.split(",").mapNotNull { it.toIntOrNull() }
+}
+
 private const val COUNTDOWN_NOTIFICATION_REQUEST_CODE = 20_000
 private const val LEGACY_PRAYER_NOTIFICATION_REQUEST_CODE = 10_000
 private const val CLASS_NOTIFICATION_REQUEST_CODE = 30_000
+private const val ANNOUNCEMENT_NOTIFICATION_REQUEST_CODE = 40_000
 private const val NOTIFICATION_PREFERENCES_NAME = "darul_ummah_notification_preferences"
+private const val SCHEDULED_ANNOUNCEMENT_CODES_KEY = "scheduled_announcement_codes"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
-private const val CLASS_ALERT_OFFSET_MINUTES = 30
+private const val CLASS_ALERT_OFFSET_MINUTES = 60
+private const val ANNOUNCEMENT_ALERT_OFFSET_MINUTES = 60

@@ -27,6 +27,7 @@ expect fun updateNotificationSchedules(
     preferences: NotificationPreferences,
     timetable: PrayerTimetable,
     isoDayOfWeek: Int,
+    announcements: List<Announcement>,
 )
 
 expect fun loadNotificationPreferences(): NotificationPreferences

@@ -2,7 +2,7 @@ TEAM_ID=
 
 PRODUCT_NAME=DarulUmmahShadwell
 PRODUCT_BUNDLE_IDENTIFIER=com.sultanyahmed.darulummahapp
-SUPABASE_URL=https://qcddlnvwpmgioduniuhx.supabase.co
+SUPABASE_URL=https:/$()/qcddlnvwpmgioduniuhx.supabase.co
 SUPABASE_ANON_KEY=sb_publishable_wM5wDGvFMP7lIso5c934_g_YyMTvaKc
 
 #include? "Secrets.xcconfig"

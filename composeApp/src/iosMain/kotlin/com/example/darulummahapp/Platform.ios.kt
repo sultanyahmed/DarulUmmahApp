@@ -10,13 +10,12 @@ import platform.Foundation.NSCalendarUnitSecond
 import platform.Foundation.NSCalendarUnitWeekday
 import platform.Foundation.NSData
 import platform.Foundation.NSDate
+import platform.Foundation.NSDateComponents
 import platform.Foundation.NSString
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.create
-import platform.Foundation.stringByAddingPercentEncodingWithAllowedCharacters
-import platform.Foundation.URLQueryAllowedCharacterSet
 import platform.Foundation.dataWithContentsOfURL
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
@@ -33,6 +32,7 @@ import platform.UIKit.popoverPresentationController
 import platform.UserNotifications.UNAuthorizationOptionAlert
 import platform.UserNotifications.UNAuthorizationOptionBadge
 import platform.UserNotifications.UNAuthorizationOptionSound
+import platform.UserNotifications.UNCalendarNotificationTrigger
 import platform.UserNotifications.UNMutableNotificationContent
 import platform.UserNotifications.UNNotificationRequest
 import platform.UserNotifications.UNNotificationSound
@@ -93,6 +93,7 @@ actual fun updateNotificationSchedules(
     preferences: NotificationPreferences,
     timetable: PrayerTimetable,
     isoDayOfWeek: Int,
+    announcements: List<Announcement>,
 ) {
     val notificationCenter = UNUserNotificationCenter.currentNotificationCenter()
     val identifiers = notificationIdentifiers()
@@ -109,6 +110,7 @@ actual fun updateNotificationSchedules(
                 preferences = preferences,
                 timetable = timetable,
                 isoDayOfWeek = isoDayOfWeek,
+                announcements = announcements,
             )
         }
     }
@@ -118,6 +120,7 @@ private fun scheduleAuthorizedNotifications(
     preferences: NotificationPreferences,
     timetable: PrayerTimetable,
     isoDayOfWeek: Int,
+    announcements: List<Announcement>,
 ) {
     val prayerEvents = timetable.dailyPrayerTimes.mapIndexed { index, prayer ->
         val isFridayZuhr = isoDayOfWeek == 5 && prayer.name == "Zuhr"
@@ -156,6 +159,23 @@ private fun scheduleAuthorizedNotifications(
                 )
             }
         }
+        val scheduledAnnouncementIdentifiers = announcements.mapNotNull { announcement ->
+            val reminderComponents = announcementReminderComponents(
+                date = announcement.startDate,
+                time = announcement.startTime,
+            ) ?: return@mapNotNull null
+            val identifier = announcementIdentifier(announcement.id)
+            scheduleCalendarNotification(
+                identifier = identifier,
+                components = reminderComponents,
+                title = "${announcement.title} in 1 hour",
+                message = "Starts at ${announcement.startTime}.",
+            )
+            identifier
+        }
+        saveScheduledAnnouncementIdentifiers(scheduledAnnouncementIdentifiers)
+    } else {
+        saveScheduledAnnouncementIdentifiers(emptyList())
     }
 }
 
@@ -188,8 +208,9 @@ actual fun openEmailAddress(emailAddress: String) {
 }
 
 actual fun openMapDirections(address: String) {
-    val encodedAddress = address.stringByAddingPercentEncodingWithAllowedCharacters(URLQueryAllowedCharacterSet)
-        ?: return
+    val encodedAddress = address
+        .replace(" ", "+")
+        .replace(",", "%2C")
     val appleMapsUrl = "http://maps.apple.com/?q=$encodedAddress"
     val googleMapsUrl = "comgooglemaps://?q=$encodedAddress&directionsmode=driving"
     val actionSheet = UIAlertController.alertControllerWithTitle(
@@ -222,7 +243,7 @@ actual fun openMapDirections(address: String) {
             handler = null,
         ),
     )
-    topViewController()?.presentViewController(actionSheet, animated = true, completion = null)
+    topPresentedViewController()?.presentViewController(actionSheet, animated = true, completion = null)
 }
 
 @OptIn(BetaInteropApi::class)
@@ -256,14 +277,6 @@ private fun canOpenUrl(urlString: String): Boolean {
     return UIApplication.sharedApplication.canOpenURL(url)
 }
 
-private fun topViewController(): UIViewController? {
-    var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
-    while (controller?.presentedViewController != null) {
-        controller = controller.presentedViewController
-    }
-    return controller
-}
-
 private data class ScheduledPrayer(
     val index: Int,
     val name: String,
@@ -271,10 +284,9 @@ private data class ScheduledPrayer(
     val minuteOfDay: Int,
 )
 
-private fun scheduleNotification(
+private fun scheduleTimeIntervalNotification(
     identifier: String,
-    prayerMinuteOfDay: Int,
-    offsetMinutes: Int,
+    timeIntervalSeconds: Int,
     title: String,
     message: String,
 ) {
@@ -284,7 +296,7 @@ private fun scheduleNotification(
         setSound(UNNotificationSound.defaultSound)
     }
     val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(
-        timeInterval = secondsUntilReminder(prayerMinuteOfDay, offsetMinutes).toDouble(),
+        timeInterval = timeIntervalSeconds.toDouble(),
         repeats = false,
     )
     val request = UNNotificationRequest.requestWithIdentifier(
@@ -293,6 +305,21 @@ private fun scheduleNotification(
         trigger = trigger,
     )
     UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(request) { }
+}
+
+private fun scheduleNotification(
+    identifier: String,
+    prayerMinuteOfDay: Int,
+    offsetMinutes: Int,
+    title: String,
+    message: String,
+) {
+    scheduleTimeIntervalNotification(
+        identifier = identifier,
+        timeIntervalSeconds = secondsUntilReminder(prayerMinuteOfDay, offsetMinutes),
+        title = title,
+        message = message,
+    )
 }
 
 private fun scheduleWeeklyNotification(
@@ -324,6 +351,29 @@ private fun scheduleWeeklyNotification(
     UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(request) { }
 }
 
+private fun scheduleCalendarNotification(
+    identifier: String,
+    components: NSDateComponents,
+    title: String,
+    message: String,
+) {
+    val content = UNMutableNotificationContent().apply {
+        setTitle(title)
+        setBody(message)
+        setSound(UNNotificationSound.defaultSound)
+    }
+    val trigger = UNCalendarNotificationTrigger.triggerWithDateMatchingComponents(
+        dateComponents = components,
+        repeats = false,
+    )
+    val request = UNNotificationRequest.requestWithIdentifier(
+        identifier = identifier,
+        content = content,
+        trigger = trigger,
+    )
+    UNUserNotificationCenter.currentNotificationCenter().addNotificationRequest(request) { }
+}
+
 private fun notificationIdentifiers(): List<String> {
     return buildList {
         repeat(5) { index ->
@@ -335,6 +385,7 @@ private fun notificationIdentifiers(): List<String> {
         repeat(classSchedule.size) { index ->
             add(classIdentifier(index))
         }
+        addAll(loadScheduledAnnouncementIdentifiers())
     }
 }
 
@@ -379,6 +430,54 @@ private fun normalizedMinuteOfDay(minuteOfDay: Int): Int {
     return ((minuteOfDay % (24 * 60)) + (24 * 60)) % (24 * 60)
 }
 
+private fun announcementReminderComponents(
+    date: String,
+    time: String,
+): NSDateComponents? {
+    val dateParts = date.split("/")
+    val timeParts = time.split(":")
+    if (dateParts.size != 3 || timeParts.size != 2) return null
+    var day = dateParts[0].toIntOrNull() ?: return null
+    var month = dateParts[1].toIntOrNull() ?: return null
+    var year = dateParts[2].toIntOrNull() ?: return null
+    var hour = timeParts[0].toIntOrNull() ?: return null
+    val minute = timeParts[1].toIntOrNull() ?: return null
+    hour -= 1
+    if (hour < 0) {
+        hour += 24
+        day -= 1
+        if (day < 1) {
+            month -= 1
+            if (month < 1) {
+                month = 12
+                year -= 1
+            }
+            day = daysInMonth(year, month)
+        }
+    }
+    return NSDateComponents().apply {
+        this.year = year.toLong()
+        this.month = month.toLong()
+        this.day = day.toLong()
+        this.hour = hour.toLong()
+        this.minute = minute.toLong()
+        this.second = 0
+    }
+}
+
+private fun daysInMonth(year: Int, month: Int): Int {
+    return when (month) {
+        1, 3, 5, 7, 8, 10, 12 -> 31
+        4, 6, 9, 11 -> 30
+        2 -> if (isLeapYear(year)) 29 else 28
+        else -> 30
+    }
+}
+
+private fun isLeapYear(year: Int): Boolean {
+    return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0
+}
+
 private fun countdownIdentifier(
     prayerIndex: Int,
     offsetMinutes: Int,
@@ -390,6 +489,27 @@ private fun classIdentifier(classIndex: Int): String {
     return "class-$classIndex"
 }
 
+private fun announcementIdentifier(announcementId: String): String {
+    return "announcement-$announcementId"
+}
+
+private fun saveScheduledAnnouncementIdentifiers(identifiers: List<String>) {
+    NSUserDefaults.standardUserDefaults.setObject(
+        value = identifiers.joinToString(","),
+        forKey = SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY,
+    )
+}
+
+private fun loadScheduledAnnouncementIdentifiers(): List<String> {
+    val raw = NSUserDefaults.standardUserDefaults.stringForKey(SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY)
+        ?.toString()
+        .orEmpty()
+    if (raw.isBlank()) return emptyList()
+    return raw.split(",").filter { it.isNotBlank() }
+}
+
 private const val NOTIFICATION_PREFERENCES_SAVED_KEY = "notificationPreferencesSaved"
+private const val SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY = "scheduledAnnouncementIdentifiers"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
 private const val CLASS_ALERT_OFFSET_MINUTES = 60
+private const val ANNOUNCEMENT_ALERT_OFFSET_MINUTES = 60

@@ -321,12 +321,13 @@ fun App() {
             }
         }
 
-        LaunchedEffect(notificationPreferences, prayerTimetable, isoDayOfWeek) {
+        LaunchedEffect(notificationPreferences, prayerTimetable, isoDayOfWeek, announcements) {
             saveNotificationPreferences(notificationPreferences)
             updateNotificationSchedules(
                 preferences = notificationPreferences,
                 timetable = prayerTimetable,
                 isoDayOfWeek = isoDayOfWeek,
+                announcements = announcements,
             )
         }
 
@@ -957,15 +958,29 @@ private fun QiblaCompassCard(state: QiblaCompassState) {
                                 .height(290.dp),
                         )
                         Text(
-                            text = state.turnDegrees?.let { "${kotlin.math.abs(it).toInt()}°" } ?: "--",
+                            text = state.qiblaBearingDegrees?.let { "${it.toInt()}°" } ?: "--",
                             color = QiblaCream,
                             fontSize = 44.sp,
                             fontWeight = FontWeight.Light,
                         )
                         Text(
+                            text = buildString {
+                                append(cardinalDirectionLabel(state.qiblaBearingDegrees))
+                                val turn = state.turnDegrees
+                                if (turn != null) {
+                                    append(" • ")
+                                    append(turnLabel(turn))
+                                }
+                            }.ifBlank { "Waiting for compass heading" },
+                            color = QiblaSand.copy(alpha = 0.98f),
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            textAlign = TextAlign.Center,
+                        )
+                        Text(
                             text = formatQiblaLocationLabel(state),
                             color = QiblaSand.copy(alpha = 0.92f),
-                            fontSize = 15.sp,
+                            fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
                             textAlign = TextAlign.Center,
                         )
@@ -1016,7 +1031,30 @@ private fun formatCoordinate(value: Double, isLatitude: Boolean): String {
         value >= 0 -> "E"
         else -> "W"
     }
-    return "${"%.4f".format(kotlin.math.abs(value))}°$direction"
+    return "${formatFourDecimalPlaces(kotlin.math.abs(value))}°$direction"
+}
+
+private fun formatFourDecimalPlaces(value: Double): String {
+    val scaled = (value * 10_000).toLong()
+    val whole = scaled / 10_000
+    val fraction = (scaled % 10_000).toString().padStart(4, '0')
+    return "$whole.$fraction"
+}
+
+private fun cardinalDirectionLabel(degrees: Double?): String {
+    if (degrees == null) return "Waiting for Qibla bearing"
+    val normalized = normalizeDegrees(degrees)
+    return when {
+        normalized < 22.5 -> "North"
+        normalized < 67.5 -> "North-East"
+        normalized < 112.5 -> "East"
+        normalized < 157.5 -> "South-East"
+        normalized < 202.5 -> "South"
+        normalized < 247.5 -> "South-West"
+        normalized < 292.5 -> "West"
+        normalized < 337.5 -> "North-West"
+        else -> "North"
+    }
 }
 
 @Composable
@@ -1735,18 +1773,21 @@ private fun AddAnnouncementCard(
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedImage by remember { mutableStateOf<PickedAnnouncementImage?>(null) }
+    var startDate by remember { mutableStateOf("") }
+    var startTime by remember { mutableStateOf(announcementTimeOptions.first()) }
     var eventDate by remember { mutableStateOf("") }
     var eventTime by remember { mutableStateOf(announcementTimeOptions.first()) }
     var password by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
     var isSubmitting by remember { mutableStateOf(false) }
+    var startTimeMenuExpanded by remember { mutableStateOf(false) }
     var timeMenuExpanded by remember { mutableStateOf(false) }
 
     InfoCard {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             SectionTitle("Add announcement")
             Text(
-                text = "Enter the admin password to publish a live announcement. The chosen date and time are when this announcement expires. You can attach an image directly from this device.",
+                text = "Enter the admin password to publish a live announcement. Add a start date and time for the 1 hour reminder, then choose when the announcement expires.",
                 color = Muted,
                 fontSize = 13.sp,
             )
@@ -1806,6 +1847,50 @@ private fun AddAnnouncementCard(
                         enabled = !isSubmitting,
                     ) {
                         Text("Remove")
+                    }
+                }
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(
+                    value = startDate,
+                    onValueChange = { startDate = it },
+                    label = { Text("Start date DD/MM/YYYY") },
+                    modifier = Modifier.weight(1f),
+                    colors = announcementFieldColors(),
+                    singleLine = true,
+                )
+                ExposedDropdownMenuBox(
+                    expanded = startTimeMenuExpanded,
+                    onExpandedChange = { startTimeMenuExpanded = it },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    OutlinedTextField(
+                        value = startTime,
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Start time") },
+                        trailingIcon = {
+                            ExposedDropdownMenuDefaults.TrailingIcon(expanded = startTimeMenuExpanded)
+                        },
+                        modifier = Modifier
+                            .menuAnchor()
+                            .fillMaxWidth(),
+                        colors = announcementFieldColors(),
+                        singleLine = true,
+                    )
+                    ExposedDropdownMenu(
+                        expanded = startTimeMenuExpanded,
+                        onDismissRequest = { startTimeMenuExpanded = false },
+                    ) {
+                        announcementTimeOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(option) },
+                                onClick = {
+                                    startTime = option
+                                    startTimeMenuExpanded = false
+                                },
+                            )
+                        }
                     }
                 }
             }
@@ -1881,12 +1966,14 @@ private fun AddAnnouncementCard(
                     val draft = buildAnnouncementDraft(
                         title = title,
                         description = description,
+                        startDate = startDate,
+                        startTime = startTime,
                         eventDate = eventDate,
                         eventTime = eventTime,
                         selectedImage = selectedImage,
                     )
                     if (draft == null) {
-                        localError = "Fill in title, description, date, and time using the requested formats."
+                        localError = "Fill in title, description, start date/time, and expiry date/time using the requested formats."
                         return@Button
                     }
                     if (password.isBlank()) {
@@ -1901,6 +1988,8 @@ private fun AddAnnouncementCard(
                             title = ""
                             description = ""
                             selectedImage = null
+                            startDate = ""
+                            startTime = announcementTimeOptions.first()
                             eventDate = ""
                             eventTime = announcementTimeOptions.first()
                             password = ""
@@ -1925,9 +2014,12 @@ private fun AnnouncementRow(
 ) {
     ScheduleRow(
         title = announcement.title,
-        meta = "${announcement.eventDate} at ${announcement.eventTime}",
+        meta = "Starts ${announcement.startDate} at ${announcement.startTime}",
         detail = announcement.description,
-        footer = announcement.mediaUrl?.takeIf { it.isNotBlank() }?.let { "Photo attached" },
+        footer = buildList {
+            add("Expires ${announcement.eventDate} at ${announcement.eventTime}")
+            if (!announcement.mediaUrl.isNullOrBlank()) add("Photo attached")
+        }.joinToString(" • "),
         action = onDelete?.let { deleteAction ->
             {
                 TextButton(
@@ -1999,20 +2091,35 @@ private fun announcementFieldColors() = OutlinedTextFieldDefaults.colors(
 private fun buildAnnouncementDraft(
     title: String,
     description: String,
+    startDate: String,
+    startTime: String,
     eventDate: String,
     eventTime: String,
     selectedImage: PickedAnnouncementImage?,
 ): AnnouncementDraft? {
     val trimmedTitle = title.trim()
     val trimmedDescription = description.trim()
+    val trimmedStartDate = startDate.trim()
+    val trimmedStartTime = startTime.trim()
     val trimmedDate = eventDate.trim()
     val trimmedTime = eventTime.trim()
+    val validStartDate = Regex("""\d{2}/\d{2}/\d{4}""").matches(trimmedStartDate)
+    val validStartTime = Regex("""\d{2}:\d{2}""").matches(trimmedStartTime)
     val validDate = Regex("""\d{2}/\d{2}/\d{4}""").matches(trimmedDate)
     val validTime = Regex("""\d{2}:\d{2}""").matches(trimmedTime)
-    if (trimmedTitle.isBlank() || trimmedDescription.isBlank() || !validDate || !validTime) return null
+    if (
+        trimmedTitle.isBlank() ||
+        trimmedDescription.isBlank() ||
+        !validStartDate ||
+        !validStartTime ||
+        !validDate ||
+        !validTime
+    ) return null
     return AnnouncementDraft(
         title = trimmedTitle,
         description = trimmedDescription,
+        startDate = trimmedStartDate,
+        startTime = trimmedStartTime,
         eventDate = trimmedDate,
         eventTime = trimmedTime,
         mediaBase64 = selectedImage?.let { encodeAnnouncementImageBase64(it.bytes) },

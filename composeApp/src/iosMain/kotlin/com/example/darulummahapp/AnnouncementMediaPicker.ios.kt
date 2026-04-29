@@ -63,7 +63,7 @@ private var activePickerDelegate: IOSAnnouncementImagePickerDelegate? = null
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun pickAnnouncementImage(): PickedAnnouncementImage? {
-    val rootViewController = UIApplication.sharedApplication.keyWindow?.rootViewController
+    val rootViewController = topPresentedViewController()
         ?: error("Could not access the iOS root view controller.")
 
     return suspendCancellableCoroutine { continuation ->
