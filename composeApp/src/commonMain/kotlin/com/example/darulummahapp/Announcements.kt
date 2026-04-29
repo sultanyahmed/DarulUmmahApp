@@ -37,10 +37,10 @@ data class Announcement(
     val title: String,
     val description: String,
     @SerialName("media_url") val mediaUrl: String? = null,
-    @SerialName("start_date") val startDate: String,
-    @SerialName("start_time") val startTime: String,
-    @SerialName("event_date") val eventDate: String,
-    @SerialName("event_time") val eventTime: String,
+    @SerialName("start_date") val startDate: String = "",
+    @SerialName("start_time") val startTime: String = "",
+    @SerialName("event_date") val eventDate: String = "",
+    @SerialName("event_time") val eventTime: String = "",
     @SerialName("created_at") val createdAt: String,
 )
 
@@ -129,6 +129,16 @@ class AnnouncementRepository(
                 ),
             )
         }
+    }
+
+    suspend fun fetchAnnouncements(): AnnouncementFeed {
+        if (!config.isConfigured) {
+            return AnnouncementFeed(
+                announcements = emptyList(),
+                status = "Supabase is not configured.",
+            )
+        }
+        return loadAnnouncements(config)
     }
 
     suspend fun submitAnnouncement(

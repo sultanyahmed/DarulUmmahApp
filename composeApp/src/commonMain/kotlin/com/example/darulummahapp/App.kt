@@ -379,6 +379,9 @@ fun App() {
                             announcementSubmitStatus = "Sending announcement..."
                             try {
                                 announcementRepository.submitAnnouncement(draft, password)
+                                val refreshedFeed = announcementRepository.fetchAnnouncements()
+                                announcements = refreshedFeed.announcements
+                                announcementStatus = refreshedFeed.status
                                 announcementSubmitStatus = "Announcement sent."
                             } catch (error: Throwable) {
                                 announcementSubmitStatus = error.message ?: "Could not send announcement."
@@ -389,7 +392,9 @@ fun App() {
                             announcementDeleteStatus = "Deleting announcement..."
                             try {
                                 announcementRepository.deleteAnnouncement(announcement.id, password)
-                                announcements = announcements.filterNot { it.id == announcement.id }
+                                val refreshedFeed = announcementRepository.fetchAnnouncements()
+                                announcements = refreshedFeed.announcements
+                                announcementStatus = refreshedFeed.status
                                 announcementDeleteStatus = "Announcement deleted."
                             } catch (error: Throwable) {
                                 announcementDeleteStatus = error.message ?: "Could not delete announcement."
