@@ -1138,42 +1138,48 @@ private fun QiblaCompassDial(
                         )
                     }
                 }
-            }
-            if (headingDegrees != null && qiblaBearingDegrees != null) {
-                val relativeQibla = normalizeSignedDegrees(qiblaBearingDegrees - headingDegrees).toFloat()
-                rotate(degrees = relativeQibla) {
-                    drawLine(
-                        color = Color.Black.copy(alpha = 0.25f),
-                        start = center.copy(x = center.x + 3.dp.toPx(), y = center.y + 6.dp.toPx()),
-                        end = center.copy(x = center.x + 3.dp.toPx(), y = center.y - radius + 34.dp.toPx()),
-                        strokeWidth = 8.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawLine(
-                        color = Gold,
-                        start = center.copy(y = center.y + 4.dp.toPx()),
-                        end = center.copy(y = center.y - radius + 30.dp.toPx()),
-                        strokeWidth = 7.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawCircle(
-                        color = Gold,
-                        radius = 8.dp.toPx(),
-                        center = center.copy(y = center.y - radius + 30.dp.toPx()),
-                    )
-                    drawKaabaMarker(
-                        centerX = center.x,
-                        centerY = center.y - radius + 4.dp.toPx(),
-                        width = 26.dp.toPx(),
-                        height = 24.dp.toPx(),
-                    )
+                if (qiblaBearingDegrees != null) {
+                    rotate(degrees = qiblaBearingDegrees.toFloat()) {
+                        drawLine(
+                            color = Color.Black.copy(alpha = 0.25f),
+                            start = center.copy(x = center.x + 3.dp.toPx(), y = center.y + 6.dp.toPx()),
+                            end = center.copy(x = center.x + 3.dp.toPx(), y = center.y - radius + 34.dp.toPx()),
+                            strokeWidth = 8.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                        drawLine(
+                            color = Gold,
+                            start = center.copy(y = center.y + 4.dp.toPx()),
+                            end = center.copy(y = center.y - radius + 30.dp.toPx()),
+                            strokeWidth = 7.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                        drawCircle(
+                            color = Gold,
+                            radius = 8.dp.toPx(),
+                            center = center.copy(y = center.y - radius + 30.dp.toPx()),
+                        )
+                        drawKaabaMarker(
+                            centerX = center.x,
+                            centerY = center.y - radius + 4.dp.toPx(),
+                            width = 26.dp.toPx(),
+                            height = 24.dp.toPx(),
+                        )
+                    }
                 }
             }
             drawLine(
                 color = Color(0xFF8C1214),
-                start = center.copy(y = center.y - radius + 18.dp.toPx()),
-                end = center.copy(y = center.y - radius + 48.dp.toPx()),
-                strokeWidth = 5.dp.toPx(),
+                start = center.copy(y = center.y + 10.dp.toPx()),
+                end = center.copy(y = center.y - radius + 34.dp.toPx()),
+                strokeWidth = 7.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
+            drawLine(
+                color = Color.White.copy(alpha = 0.9f),
+                start = center.copy(y = center.y - 10.dp.toPx()),
+                end = center.copy(y = center.y + radius - 30.dp.toPx()),
+                strokeWidth = 6.dp.toPx(),
                 cap = StrokeCap.Round,
             )
             drawCircle(
