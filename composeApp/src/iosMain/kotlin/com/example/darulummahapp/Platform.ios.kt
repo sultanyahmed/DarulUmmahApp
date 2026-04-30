@@ -297,9 +297,13 @@ private fun openUrl(
     failureMessage: String,
 ) {
     val url = NSURL.URLWithString(urlString) ?: return
-    val didOpen = UIApplication.sharedApplication.openURL(url)
-    if (!didOpen) {
-        showUnavailableAlert(failureMessage)
+    UIApplication.sharedApplication.openURL(
+        url = url,
+        options = emptyMap<Any?, Any>(),
+    ) { didOpen ->
+        if (!didOpen) {
+            showUnavailableAlert(failureMessage)
+        }
     }
 }
 

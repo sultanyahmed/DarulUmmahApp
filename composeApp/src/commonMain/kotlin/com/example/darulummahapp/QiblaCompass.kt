@@ -6,13 +6,16 @@ import kotlin.math.atan2
 import kotlin.math.cos
 import kotlin.math.sin
 
+internal const val FIXED_QIBLA_BEARING_DEGREES = 117.0
+internal const val QIBLA_ALIGNMENT_THRESHOLD_DEGREES = 5.0
+
 data class QiblaCompassState(
     val headingDegrees: Double? = null,
-    val qiblaBearingDegrees: Double? = null,
+    val qiblaBearingDegrees: Double? = FIXED_QIBLA_BEARING_DEGREES,
     val turnDegrees: Double? = null,
     val latitude: Double? = null,
     val longitude: Double? = null,
-    val status: String = "Open Settings while allowing location access to show the Qibla compass.",
+    val status: String = "Waiting for location",
     val isLocationPermissionGranted: Boolean = false,
     val isHeadingAvailable: Boolean = false,
 )

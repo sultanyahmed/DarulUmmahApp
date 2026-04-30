@@ -17,6 +17,21 @@ val localProperties = Properties().apply {
     }
 }
 
+fun localPropertyOrEnv(propertyName: String, environmentName: String): String? {
+    return localProperties.getProperty(propertyName) ?: System.getenv(environmentName)
+}
+
+val releaseStoreFilePath = localPropertyOrEnv("play.storeFile", "PLAY_STORE_FILE")
+val releaseStorePassword = localPropertyOrEnv("play.storePassword", "PLAY_STORE_PASSWORD")
+val releaseKeyAlias = localPropertyOrEnv("play.keyAlias", "PLAY_KEY_ALIAS")
+val releaseKeyPassword = localPropertyOrEnv("play.keyPassword", "PLAY_KEY_PASSWORD")
+val hasReleaseSigningConfig = listOf(
+    releaseStoreFilePath,
+    releaseStorePassword,
+    releaseKeyAlias,
+    releaseKeyPassword,
+).all { !it.isNullOrBlank() }
+
 kotlin {
     androidTarget {
         compilerOptions {
@@ -72,11 +87,11 @@ android {
     compileSdk = libs.versions.android.compileSdk.get().toInt()
 
     defaultConfig {
-        applicationId = "com.example.darulummahapp"
+        applicationId = "com.sultanyahmed.darulummahapp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
         versionCode = 1
-        versionName = "1.0"
+        versionName = "1.0.0"
         buildConfigField(
             "String",
             "SUPABASE_URL",
@@ -93,9 +108,22 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    if (hasReleaseSigningConfig) {
+        signingConfigs {
+            create("release") {
+                storeFile = rootProject.file(releaseStoreFilePath!!)
+                storePassword = releaseStorePassword
+                keyAlias = releaseKeyAlias
+                keyPassword = releaseKeyPassword
+            }
+        }
+    }
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
+            if (hasReleaseSigningConfig) {
+                signingConfig = signingConfigs.getByName("release")
+            }
         }
     }
     buildFeatures {

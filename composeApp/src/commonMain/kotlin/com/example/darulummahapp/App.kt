@@ -959,33 +959,26 @@ private fun QiblaCompassCard(state: QiblaCompassState) {
                     ) {
                         QiblaCompassDial(
                             headingDegrees = state.headingDegrees,
-                            qiblaBearingDegrees = state.qiblaBearingDegrees,
+                            turnDegrees = state.turnDegrees,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(290.dp),
                         )
                         Text(
-                            text = state.qiblaBearingDegrees?.let { "${it.toInt()}°" } ?: "--",
+                            text = state.headingDegrees?.let { "Facing ${it.toInt()}°" } ?: "Facing --",
                             color = QiblaCream,
-                            fontSize = 44.sp,
+                            fontSize = 34.sp,
                             fontWeight = FontWeight.Light,
                         )
                         Text(
-                            text = buildString {
-                                append(cardinalDirectionLabel(state.qiblaBearingDegrees))
-                                val turn = state.turnDegrees
-                                if (turn != null) {
-                                    append(" • ")
-                                    append(turnLabel(turn))
-                                }
-                            }.ifBlank { "Waiting for compass heading" },
+                            text = "Qibla ${state.qiblaBearingDegrees?.let { "${it.toInt()}°" } ?: "--"}",
                             color = QiblaSand.copy(alpha = 0.98f),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.SemiBold,
                             textAlign = TextAlign.Center,
                         )
                         Text(
-                            text = formatQiblaLocationLabel(state),
+                            text = state.turnDegrees?.let { turnLabel(it) } ?: "Compass permission needed",
                             color = QiblaSand.copy(alpha = 0.92f),
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Medium,
@@ -1024,50 +1017,10 @@ private fun QiblaCompassCard(state: QiblaCompassState) {
     }
 }
 
-private fun formatQiblaLocationLabel(state: QiblaCompassState): String {
-    val latitude = state.latitude
-    val longitude = state.longitude
-    if (latitude == null || longitude == null) return "Waiting for location"
-    return "${formatCoordinate(latitude, true)}  ${formatCoordinate(longitude, false)}"
-}
-
-private fun formatCoordinate(value: Double, isLatitude: Boolean): String {
-    val direction = when {
-        isLatitude && value >= 0 -> "N"
-        isLatitude -> "S"
-        value >= 0 -> "E"
-        else -> "W"
-    }
-    return "${formatFourDecimalPlaces(kotlin.math.abs(value))}°$direction"
-}
-
-private fun formatFourDecimalPlaces(value: Double): String {
-    val scaled = (value * 10_000).toLong()
-    val whole = scaled / 10_000
-    val fraction = (scaled % 10_000).toString().padStart(4, '0')
-    return "$whole.$fraction"
-}
-
-private fun cardinalDirectionLabel(degrees: Double?): String {
-    if (degrees == null) return "Waiting for Qibla bearing"
-    val normalized = normalizeDegrees(degrees)
-    return when {
-        normalized < 22.5 -> "North"
-        normalized < 67.5 -> "North-East"
-        normalized < 112.5 -> "East"
-        normalized < 157.5 -> "South-East"
-        normalized < 202.5 -> "South"
-        normalized < 247.5 -> "South-West"
-        normalized < 292.5 -> "West"
-        normalized < 337.5 -> "North-West"
-        else -> "North"
-    }
-}
-
 @Composable
 private fun QiblaCompassDial(
     headingDegrees: Double?,
-    qiblaBearingDegrees: Double?,
+    turnDegrees: Double?,
     modifier: Modifier = Modifier,
 ) {
     val compassRotation = -(headingDegrees ?: 0.0).toFloat()
@@ -1138,34 +1091,34 @@ private fun QiblaCompassDial(
                         )
                     }
                 }
-                if (qiblaBearingDegrees != null) {
-                    rotate(degrees = qiblaBearingDegrees.toFloat()) {
-                        drawLine(
-                            color = Color.Black.copy(alpha = 0.25f),
-                            start = center.copy(x = center.x + 3.dp.toPx(), y = center.y + 6.dp.toPx()),
-                            end = center.copy(x = center.x + 3.dp.toPx(), y = center.y - radius + 34.dp.toPx()),
-                            strokeWidth = 8.dp.toPx(),
-                            cap = StrokeCap.Round,
-                        )
-                        drawLine(
-                            color = Gold,
-                            start = center.copy(y = center.y + 4.dp.toPx()),
-                            end = center.copy(y = center.y - radius + 30.dp.toPx()),
-                            strokeWidth = 7.dp.toPx(),
-                            cap = StrokeCap.Round,
-                        )
-                        drawCircle(
-                            color = Gold,
-                            radius = 8.dp.toPx(),
-                            center = center.copy(y = center.y - radius + 30.dp.toPx()),
-                        )
-                        drawKaabaMarker(
-                            centerX = center.x,
-                            centerY = center.y - radius + 4.dp.toPx(),
-                            width = 26.dp.toPx(),
-                            height = 24.dp.toPx(),
-                        )
-                    }
+            }
+            if (turnDegrees != null) {
+                rotate(degrees = turnDegrees.toFloat()) {
+                    drawLine(
+                        color = Color.Black.copy(alpha = 0.25f),
+                        start = center.copy(x = center.x + 3.dp.toPx(), y = center.y + 6.dp.toPx()),
+                        end = center.copy(x = center.x + 3.dp.toPx(), y = center.y - radius + 34.dp.toPx()),
+                        strokeWidth = 8.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
+                        color = Gold,
+                        start = center.copy(y = center.y + 4.dp.toPx()),
+                        end = center.copy(y = center.y - radius + 30.dp.toPx()),
+                        strokeWidth = 7.dp.toPx(),
+                        cap = StrokeCap.Round,
+                    )
+                    drawCircle(
+                        color = Gold,
+                        radius = 8.dp.toPx(),
+                        center = center.copy(y = center.y - radius + 30.dp.toPx()),
+                    )
+                    drawKaabaMarker(
+                        centerX = center.x,
+                        centerY = center.y - radius + 4.dp.toPx(),
+                        width = 26.dp.toPx(),
+                        height = 24.dp.toPx(),
+                    )
                 }
             }
             drawLine(
@@ -1291,8 +1244,11 @@ private fun CompassFact(
 
 private fun turnLabel(turnDegrees: Double): String {
     val normalized = normalizeDegrees(turnDegrees)
+    if (kotlin.math.abs(normalizeSignedDegrees(normalized)) <= QIBLA_ALIGNMENT_THRESHOLD_DEGREES) {
+        return "Aligned"
+    }
     val displayDegrees = if (normalized > 180.0) 360.0 - normalized else normalized
-    val rounded = displayDegrees.toInt()
+    val rounded = (displayDegrees + 0.5).toInt()
     return if (normalized > 180.0) "$rounded° left" else "$rounded° right"
 }
 

@@ -30,7 +30,13 @@ private class IOSQiblaCompassController : QiblaCompassController {
         override fun locationManager(manager: CLLocationManager, didUpdateHeading: CLHeading) {
             if (didUpdateHeading.trueHeading >= 0.0) {
                 lastHeadingDegrees = normalizeDegrees(didUpdateHeading.trueHeading)
-                publishState("Compass ready. Follow the gold Qibla marker.")
+                publishState(
+                    if (lastLatitude == null || lastLongitude == null) {
+                        "Waiting for location"
+                    } else {
+                        "Compass ready. Follow the gold Qibla marker."
+                    },
+                )
             } else {
                 lastHeadingDegrees = null
                 publishState("Move phone in a figure 8 to calibrate")
@@ -112,12 +118,8 @@ private class IOSQiblaCompassController : QiblaCompassController {
         val headingDegrees = lastHeadingDegrees
         val latitude = lastLatitude
         val longitude = lastLongitude
-        val qiblaBearingDegrees = if (latitude != null && longitude != null) {
-            calculateQiblaBearingDegrees(latitude, longitude)
-        } else {
-            null
-        }
-        val turnDegrees = if (headingDegrees != null && qiblaBearingDegrees != null) {
+        val qiblaBearingDegrees = FIXED_QIBLA_BEARING_DEGREES
+        val turnDegrees = if (headingDegrees != null) {
             calculateTurnDegrees(headingDegrees, qiblaBearingDegrees)
         } else {
             null

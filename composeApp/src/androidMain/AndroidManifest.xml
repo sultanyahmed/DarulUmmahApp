@@ -16,7 +16,7 @@
             android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity
                 android:exported="true"
-                android:name=".MainActivity">
+                android:name="com.example.darulummahapp.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
 
@@ -24,7 +24,7 @@
             </intent-filter>
         </activity>
         <receiver
-                android:name=".PrayerNotificationReceiver"
+                android:name="com.example.darulummahapp.PrayerNotificationReceiver"
                 android:exported="false"/>
     </application>
 
