@@ -33,7 +33,7 @@ private class IOSQiblaCompassController : QiblaCompassController {
                 publishState("Compass ready. Follow the gold Qibla marker.")
             } else {
                 lastHeadingDegrees = null
-                publishState("Move your iPhone in a figure-eight to calibrate true north.")
+                publishState("Move phone in a figure 8 to calibrate")
             }
         }
 
@@ -47,7 +47,7 @@ private class IOSQiblaCompassController : QiblaCompassController {
         }
 
         override fun locationManager(manager: CLLocationManager, didFailWithError: platform.Foundation.NSError) {
-            publishState("Could not determine your location. Check Location Services and try again.")
+            publishState("Waiting for location")
         }
 
         override fun locationManagerDidChangeAuthorization(manager: CLLocationManager) {
@@ -73,7 +73,7 @@ private class IOSQiblaCompassController : QiblaCompassController {
         when (CLLocationManager.authorizationStatus()) {
             kCLAuthorizationStatusNotDetermined -> {
                 mutableState.value = QiblaCompassState(
-                    status = "Allow location access to calculate the Qibla from your current position.",
+                    status = "Waiting for location",
                 )
                 locationManager.requestWhenInUseAuthorization()
             }
@@ -85,16 +85,16 @@ private class IOSQiblaCompassController : QiblaCompassController {
                 locationManager.startUpdatingLocation()
                 publishState(
                     if (CLLocationManager.headingAvailable()) {
-                        "Finding your location and calibrating true north..."
+                        "Waiting for location"
                     } else {
-                        "Finding your location and compass heading..."
+                        "Compass permission needed"
                     },
                 )
             }
             kCLAuthorizationStatusDenied,
             kCLAuthorizationStatusRestricted -> {
                 mutableState.value = QiblaCompassState(
-                    status = "Enable Location access in iPhone Settings to show the Qibla direction.",
+                    status = "Waiting for location",
                     isLocationPermissionGranted = false,
                     isHeadingAvailable = false,
                 )
@@ -117,20 +117,42 @@ private class IOSQiblaCompassController : QiblaCompassController {
         } else {
             null
         }
+        val turnDegrees = if (headingDegrees != null && qiblaBearingDegrees != null) {
+            calculateTurnDegrees(headingDegrees, qiblaBearingDegrees)
+        } else {
+            null
+        }
+        logQiblaState(
+            latitude = latitude,
+            longitude = longitude,
+            headingDegrees = headingDegrees,
+            qiblaBearingDegrees = qiblaBearingDegrees,
+            turnDegrees = turnDegrees,
+        )
         mutableState.value = QiblaCompassState(
             headingDegrees = headingDegrees,
             qiblaBearingDegrees = qiblaBearingDegrees,
-            turnDegrees = if (headingDegrees != null && qiblaBearingDegrees != null) {
-                calculateTurnDegrees(headingDegrees, qiblaBearingDegrees)
-            } else {
-                null
-            },
+            turnDegrees = turnDegrees,
             latitude = latitude,
             longitude = longitude,
             status = status,
             isLocationPermissionGranted = true,
             isHeadingAvailable = headingDegrees != null,
         )
+    }
+
+    private fun logQiblaState(
+        latitude: Double?,
+        longitude: Double?,
+        headingDegrees: Double?,
+        qiblaBearingDegrees: Double?,
+        turnDegrees: Double?,
+    ) {
+        println("QiblaCompass user latitude: ${latitude ?: "waiting"}")
+        println("QiblaCompass user longitude: ${longitude ?: "waiting"}")
+        println("QiblaCompass device heading: ${headingDegrees ?: "waiting"}")
+        println("QiblaCompass qibla bearing: ${qiblaBearingDegrees ?: "waiting"}")
+        println("QiblaCompass turn angle: ${turnDegrees ?: "waiting"}")
     }
 }
 

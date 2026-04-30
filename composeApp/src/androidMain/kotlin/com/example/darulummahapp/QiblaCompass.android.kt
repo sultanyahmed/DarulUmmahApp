@@ -13,11 +13,16 @@ import android.location.LocationListener
 import android.location.LocationManager
 import android.os.Bundle
 import android.os.Looper
+import android.util.Log
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 private class AndroidQiblaCompassController : QiblaCompassController {
+    private companion object {
+        const val LOG_TAG = "QiblaCompass"
+    }
+
     private val mutableState = MutableStateFlow(QiblaCompassState())
     override val state: StateFlow<QiblaCompassState> = mutableState.asStateFlow()
 
@@ -39,10 +44,19 @@ private class AndroidQiblaCompassController : QiblaCompassController {
             val magneticHeadingDegrees = normalizeDegrees(Math.toDegrees(orientation[0].toDouble()))
             val headingDegrees = magneticHeadingDegrees.toTrueNorthHeadingDegrees()
             lastHeadingDegrees = headingDegrees
-            publishState("Compass ready. Follow the gold Qibla marker.")
+            val status = if (event.accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
+                "Move phone in a figure 8 to calibrate"
+            } else {
+                "Compass ready. Follow the gold Qibla marker."
+            }
+            publishState(status)
         }
 
-        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+        override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+            if (accuracy == SensorManager.SENSOR_STATUS_UNRELIABLE) {
+                publishState("Move phone in a figure 8 to calibrate")
+            }
+        }
     }
 
     private val locationListener = object : LocationListener {
@@ -71,7 +85,7 @@ private class AndroidQiblaCompassController : QiblaCompassController {
         }
         if (!hasLocationPermission(context)) {
             mutableState.value = QiblaCompassState(
-                status = "Allow location access to show the Qibla direction from your current position.",
+                status = "Waiting for location",
                 isLocationPermissionGranted = false,
             )
             return
@@ -83,7 +97,7 @@ private class AndroidQiblaCompassController : QiblaCompassController {
         val rotationVectorSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR)
         if (rotationVectorSensor == null) {
             mutableState.value = QiblaCompassState(
-                status = "This device does not expose a compass heading sensor.",
+                status = "Compass permission needed",
                 isLocationPermissionGranted = true,
                 isHeadingAvailable = false,
             )
@@ -97,7 +111,7 @@ private class AndroidQiblaCompassController : QiblaCompassController {
         )
 
         requestLocationUpdates(context)
-        publishState("Finding your location and compass heading...")
+        publishState("Waiting for location")
     }
 
     override fun stop() {
@@ -128,12 +142,12 @@ private class AndroidQiblaCompassController : QiblaCompassController {
         }
         if (enabledProviders.isEmpty()) {
             mutableState.value = QiblaCompassState(
-                status = "Turn on Location services to calculate the Qibla from your position.",
+                status = "Waiting for location",
                 isLocationPermissionGranted = hasLocationPermission(context),
                 isHeadingAvailable = lastHeadingDegrees != null,
             )
         } else {
-            publishState("Finding your location and compass heading...")
+            publishState("Waiting for location")
         }
     }
 
@@ -146,20 +160,42 @@ private class AndroidQiblaCompassController : QiblaCompassController {
         } else {
             null
         }
+        val turnDegrees = if (headingDegrees != null && qiblaBearingDegrees != null) {
+            calculateTurnDegrees(headingDegrees, qiblaBearingDegrees)
+        } else {
+            null
+        }
+        logQiblaState(
+            latitude = latitude,
+            longitude = longitude,
+            headingDegrees = headingDegrees,
+            qiblaBearingDegrees = qiblaBearingDegrees,
+            turnDegrees = turnDegrees,
+        )
         mutableState.value = QiblaCompassState(
             headingDegrees = headingDegrees,
             qiblaBearingDegrees = qiblaBearingDegrees,
-            turnDegrees = if (headingDegrees != null && qiblaBearingDegrees != null) {
-                calculateTurnDegrees(headingDegrees, qiblaBearingDegrees)
-            } else {
-                null
-            },
+            turnDegrees = turnDegrees,
             latitude = latitude,
             longitude = longitude,
             status = status,
             isLocationPermissionGranted = true,
             isHeadingAvailable = headingDegrees != null,
         )
+    }
+
+    private fun logQiblaState(
+        latitude: Double?,
+        longitude: Double?,
+        headingDegrees: Double?,
+        qiblaBearingDegrees: Double?,
+        turnDegrees: Double?,
+    ) {
+        Log.d(LOG_TAG, "user latitude: ${latitude ?: "waiting"}")
+        Log.d(LOG_TAG, "user longitude: ${longitude ?: "waiting"}")
+        Log.d(LOG_TAG, "device heading: ${headingDegrees ?: "waiting"}")
+        Log.d(LOG_TAG, "qibla bearing: ${qiblaBearingDegrees ?: "waiting"}")
+        Log.d(LOG_TAG, "turn angle: ${turnDegrees ?: "waiting"}")
     }
 
     private fun hasLocationPermission(context: Context): Boolean {

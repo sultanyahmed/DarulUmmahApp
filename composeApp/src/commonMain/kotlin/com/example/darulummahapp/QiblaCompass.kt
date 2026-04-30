@@ -36,9 +36,9 @@ internal fun calculateQiblaBearingDegrees(
     val latitudeRadians = latitude.toRadians()
     val kaabaLatitudeRadians = kaabaLatitude.toRadians()
     val longitudeDeltaRadians = (kaabaLongitude - longitude).toRadians()
-    val y = sin(longitudeDeltaRadians)
-    val x = cos(latitudeRadians) * tan(kaabaLatitudeRadians) -
-        sin(latitudeRadians) * cos(longitudeDeltaRadians)
+    val y = sin(longitudeDeltaRadians) * cos(kaabaLatitudeRadians)
+    val x = cos(latitudeRadians) * sin(kaabaLatitudeRadians) -
+        sin(latitudeRadians) * cos(kaabaLatitudeRadians) * cos(longitudeDeltaRadians)
     return normalizeDegrees(atan2(y, x).toDegrees())
 }
 
@@ -46,7 +46,7 @@ internal fun calculateTurnDegrees(
     headingDegrees: Double,
     qiblaBearingDegrees: Double,
 ): Double {
-    return normalizeSignedDegrees(qiblaBearingDegrees - headingDegrees)
+    return normalizeDegrees(qiblaBearingDegrees - headingDegrees)
 }
 
 internal fun normalizeDegrees(value: Double): Double {
@@ -64,5 +64,3 @@ internal fun normalizeSignedDegrees(value: Double): Double {
 private fun Double.toRadians(): Double = this * PI / 180.0
 
 private fun Double.toDegrees(): Double = this * 180.0 / PI
-
-private fun tan(value: Double): Double = sin(value) / cos(value)

@@ -32,9 +32,9 @@ class QiblaCompassTest {
     }
 
     @Test
-    fun turnDegreesUsesShortestDirection() {
+    fun turnDegreesUsesClockwiseAngleFromHeading() {
         assertEquals(30.0, calculateTurnDegrees(90.0, 120.0), 0.0001)
-        assertEquals(-20.0, calculateTurnDegrees(120.0, 100.0), 0.0001)
-        assertEquals(-170.0, calculateTurnDegrees(350.0, 180.0), 0.0001)
+        assertEquals(340.0, calculateTurnDegrees(120.0, 100.0), 0.0001)
+        assertEquals(190.0, calculateTurnDegrees(350.0, 180.0), 0.0001)
     }
 }

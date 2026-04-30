@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,17 +12,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
 
 class MainActivity : ComponentActivity() {
+    private var hasSetContent = false
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) {
+        showApp()
+    }
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) {
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
         AndroidAppContext.applicationContext = applicationContext
         AndroidAnnouncementImagePicker.register(this)
-        requestNotificationPermission()
-        requestLocationPermissions()
+        if (requestLocationPermissions()) {
+            return
+        }
+        showApp()
+    }
 
+    private fun showApp() {
+        if (hasSetContent) return
+        hasSetContent = true
         setContent {
             App()
         }
+        requestNotificationPermission()
     }
 
     private fun requestNotificationPermission() {
@@ -30,14 +49,11 @@ class MainActivity : ComponentActivity() {
             checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) !=
             PackageManager.PERMISSION_GRANTED
         ) {
-            requestPermissions(
-                arrayOf(Manifest.permission.POST_NOTIFICATIONS),
-                POST_NOTIFICATIONS_REQUEST_CODE,
-            )
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
     }
 
-    private fun requestLocationPermissions() {
+    private fun requestLocationPermissions(): Boolean {
         val missingPermissions = buildList {
             if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 add(Manifest.permission.ACCESS_FINE_LOCATION)
@@ -47,16 +63,10 @@ class MainActivity : ComponentActivity() {
             }
         }
         if (missingPermissions.isNotEmpty()) {
-            requestPermissions(
-                missingPermissions.toTypedArray(),
-                LOCATION_PERMISSIONS_REQUEST_CODE,
-            )
+            locationPermissionLauncher.launch(missingPermissions.toTypedArray())
+            return true
         }
-    }
-
-    companion object {
-        private const val POST_NOTIFICATIONS_REQUEST_CODE = 1001
-        private const val LOCATION_PERMISSIONS_REQUEST_CODE = 1002
+        return false
     }
 }
 

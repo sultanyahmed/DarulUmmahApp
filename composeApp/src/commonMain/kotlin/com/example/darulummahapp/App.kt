@@ -51,6 +51,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -1069,6 +1070,7 @@ private fun QiblaCompassDial(
     qiblaBearingDegrees: Double?,
     modifier: Modifier = Modifier,
 ) {
+    val compassRotation = -(headingDegrees ?: 0.0).toFloat()
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center,
@@ -1106,51 +1108,35 @@ private fun QiblaCompassDial(
                 radius = radius * 0.64f,
                 style = Stroke(width = 1.dp.toPx()),
             )
-            repeat(72) { index ->
-                val angle = index * 5f
-                val tickLength = when {
-                    index % 18 == 0 -> 18.dp.toPx()
-                    index % 9 == 0 -> 12.dp.toPx()
-                    else -> 5.dp.toPx()
+            rotate(degrees = compassRotation) {
+                repeat(72) { index ->
+                    val angle = index * 5f
+                    val tickLength = when {
+                        index % 18 == 0 -> 18.dp.toPx()
+                        index % 9 == 0 -> 12.dp.toPx()
+                        else -> 5.dp.toPx()
+                    }
+                    rotate(degrees = angle) {
+                        drawLine(
+                            color = if (index % 9 == 0) QiblaBronze else QiblaBronze.copy(alpha = 0.5f),
+                            start = center.copy(y = center.y - radius + 14.dp.toPx()),
+                            end = center.copy(y = center.y - radius + 14.dp.toPx() + tickLength),
+                            strokeWidth = if (index % 18 == 0) 3.dp.toPx() else 1.5.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                    }
                 }
-                rotate(degrees = angle) {
-                    drawLine(
-                        color = if (index % 9 == 0) QiblaBronze else QiblaBronze.copy(alpha = 0.5f),
-                        start = center.copy(y = center.y - radius + 14.dp.toPx()),
-                        end = center.copy(y = center.y - radius + 14.dp.toPx() + tickLength),
-                        strokeWidth = if (index % 18 == 0) 3.dp.toPx() else 1.5.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                }
-            }
-            repeat(4) { index ->
-                val angle = index * 90f
-                rotate(degrees = angle) {
-                    drawLine(
-                        color = QiblaBronze.copy(alpha = 0.6f),
-                        start = center.copy(y = center.y - radius + 28.dp.toPx()),
-                        end = center.copy(y = center.y - radius + 52.dp.toPx()),
-                        strokeWidth = 5.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                }
-            }
-            if (headingDegrees != null) {
-                rotate(degrees = -headingDegrees.toFloat()) {
-                    drawLine(
-                        color = Color(0xFF8C1214),
-                        start = center.copy(y = center.y + 10.dp.toPx()),
-                        end = center.copy(y = center.y - radius + 34.dp.toPx()),
-                        strokeWidth = 7.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawLine(
-                        color = Color.White.copy(alpha = 0.9f),
-                        start = center.copy(y = center.y - 10.dp.toPx()),
-                        end = center.copy(y = center.y + radius - 30.dp.toPx()),
-                        strokeWidth = 6.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
+                repeat(4) { index ->
+                    val angle = index * 90f
+                    rotate(degrees = angle) {
+                        drawLine(
+                            color = QiblaBronze.copy(alpha = 0.6f),
+                            start = center.copy(y = center.y - radius + 28.dp.toPx()),
+                            end = center.copy(y = center.y - radius + 52.dp.toPx()),
+                            strokeWidth = 5.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                    }
                 }
             }
             if (headingDegrees != null && qiblaBearingDegrees != null) {
@@ -1183,6 +1169,13 @@ private fun QiblaCompassDial(
                     )
                 }
             }
+            drawLine(
+                color = Color(0xFF8C1214),
+                start = center.copy(y = center.y - radius + 18.dp.toPx()),
+                end = center.copy(y = center.y - radius + 48.dp.toPx()),
+                strokeWidth = 5.dp.toPx(),
+                cap = StrokeCap.Round,
+            )
             drawCircle(
                 color = QiblaSurfaceDeep,
                 radius = 8.dp.toPx(),
@@ -1193,7 +1186,9 @@ private fun QiblaCompassDial(
             )
         }
         Column(
-            modifier = Modifier.size(236.dp),
+            modifier = Modifier
+                .size(236.dp)
+                .graphicsLayer { rotationZ = compassRotation },
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text("N", color = QiblaBronze, fontSize = 16.sp, fontWeight = FontWeight.Bold)
@@ -1289,12 +1284,10 @@ private fun CompassFact(
 }
 
 private fun turnLabel(turnDegrees: Double): String {
-    val rounded = kotlin.math.abs(turnDegrees).toInt()
-    return when {
-        rounded < 3 -> "Aligned"
-        turnDegrees > 0 -> "$rounded° right"
-        else -> "$rounded° left"
-    }
+    val normalized = normalizeDegrees(turnDegrees)
+    val displayDegrees = if (normalized > 180.0) 360.0 - normalized else normalized
+    val rounded = displayDegrees.toInt()
+    return if (normalized > 180.0) "$rounded° left" else "$rounded° right"
 }
 
 @Composable
