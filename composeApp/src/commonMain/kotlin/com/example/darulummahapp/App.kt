@@ -551,7 +551,7 @@ private fun HomeScreen(
     val currentPrayer = currentPrayer(prayerTimetable.dailyPrayerTimes, minuteOfDay)
     val upcomingPrayer = upcomingPrayer(
         timetable = prayerTimetable,
-        minuteOfDay = minuteOfDay,
+        secondOfDay = secondOfDay,
         isoDayOfWeek = isoDayOfWeek,
     )
     val remainingSeconds = secondsUntil(upcomingPrayer.minuteOfDay * 60, secondOfDay)
@@ -2307,7 +2307,7 @@ private fun currentPrayer(
 
 internal fun upcomingPrayer(
     timetable: PrayerTimetable,
-    minuteOfDay: Int,
+    secondOfDay: Int,
     isoDayOfWeek: Int,
 ): UpcomingPrayer {
     val candidates = timetable.dailyPrayerTimes.map { prayer ->
@@ -2325,7 +2325,7 @@ internal fun upcomingPrayer(
             )
         }
     }
-    return candidates.firstOrNull { minuteOfDay < it.minuteOfDay } ?: candidates.first()
+    return candidates.firstOrNull { secondOfDay < it.minuteOfDay * 60 } ?: candidates.first()
 }
 
 private const val FRIDAY = 5
