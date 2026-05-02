@@ -7,6 +7,8 @@ interface Platform {
     val name: String
 }
 
+internal const val MOSQUE_TIME_ZONE_ID = "Europe/London"
+
 data class DateTimeComponents(
     val year: Int,
     val month: Int,

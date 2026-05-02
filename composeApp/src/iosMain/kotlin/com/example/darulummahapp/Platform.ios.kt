@@ -13,11 +13,13 @@ import platform.Foundation.NSData
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateComponents
 import platform.Foundation.NSString
+import platform.Foundation.NSTimeZone
 import platform.Foundation.NSURL
 import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDefaults
 import platform.Foundation.create
 import platform.Foundation.dataWithContentsOfURL
+import platform.Foundation.timeZoneWithName
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
 import platform.UIKit.UIActivityViewController
@@ -48,7 +50,7 @@ class IOSPlatform : Platform {
 actual fun getPlatform(): Platform = IOSPlatform()
 
 actual fun currentMinuteOfDay(): Int {
-    val components = NSCalendar.currentCalendar.components(
+    val components = mosqueCalendar().components(
         NSCalendarUnitHour or NSCalendarUnitMinute,
         fromDate = NSDate(),
     )
@@ -56,7 +58,7 @@ actual fun currentMinuteOfDay(): Int {
 }
 
 actual fun currentSecondOfDay(): Int {
-    val components = NSCalendar.currentCalendar.components(
+    val components = mosqueCalendar().components(
         NSCalendarUnitHour or NSCalendarUnitMinute or NSCalendarUnitSecond,
         fromDate = NSDate(),
     )
@@ -66,7 +68,7 @@ actual fun currentSecondOfDay(): Int {
 }
 
 actual fun currentIsoDayOfWeek(): Int {
-    val components = NSCalendar.currentCalendar.components(
+    val components = mosqueCalendar().components(
         NSCalendarUnitWeekday,
         fromDate = NSDate(),
     )
@@ -74,7 +76,7 @@ actual fun currentIsoDayOfWeek(): Int {
 }
 
 actual fun currentDateTimeComponents(): DateTimeComponents {
-    val components = NSCalendar.currentCalendar.components(
+    val components = mosqueCalendar().components(
         NSCalendarUnitHour or NSCalendarUnitMinute or NSCalendarUnitSecond or
             platform.Foundation.NSCalendarUnitDay or
             platform.Foundation.NSCalendarUnitMonth or
@@ -89,6 +91,12 @@ actual fun currentDateTimeComponents(): DateTimeComponents {
         minute = components.minute.toInt(),
         second = components.second.toInt(),
     )
+}
+
+private fun mosqueCalendar(): NSCalendar {
+    return NSCalendar.currentCalendar.apply {
+        NSTimeZone.timeZoneWithName(tzName = MOSQUE_TIME_ZONE_ID)?.let { timeZone = it }
+    }
 }
 
 actual fun updateNotificationSchedules(

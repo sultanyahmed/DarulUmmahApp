@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.Calendar
+import java.util.TimeZone
 import kotlin.math.absoluteValue
 
 internal object AndroidAppContext {
@@ -25,24 +26,24 @@ class AndroidPlatform : Platform {
 actual fun getPlatform(): Platform = AndroidPlatform()
 
 actual fun currentMinuteOfDay(): Int {
-    val calendar = Calendar.getInstance()
+    val calendar = mosqueCalendar()
     return calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
 }
 
 actual fun currentSecondOfDay(): Int {
-    val calendar = Calendar.getInstance()
+    val calendar = mosqueCalendar()
     return calendar.get(Calendar.HOUR_OF_DAY) * 60 * 60 +
         calendar.get(Calendar.MINUTE) * 60 +
         calendar.get(Calendar.SECOND)
 }
 
 actual fun currentIsoDayOfWeek(): Int {
-    val dayOfWeek = Calendar.getInstance().get(Calendar.DAY_OF_WEEK)
+    val dayOfWeek = mosqueCalendar().get(Calendar.DAY_OF_WEEK)
     return ((dayOfWeek + 5) % 7) + 1
 }
 
 actual fun currentDateTimeComponents(): DateTimeComponents {
-    val calendar = Calendar.getInstance()
+    val calendar = mosqueCalendar()
     return DateTimeComponents(
         year = calendar.get(Calendar.YEAR),
         month = calendar.get(Calendar.MONTH) + 1,
@@ -51,6 +52,10 @@ actual fun currentDateTimeComponents(): DateTimeComponents {
         minute = calendar.get(Calendar.MINUTE),
         second = calendar.get(Calendar.SECOND),
     )
+}
+
+private fun mosqueCalendar(): Calendar {
+    return Calendar.getInstance(TimeZone.getTimeZone(MOSQUE_TIME_ZONE_ID))
 }
 
 actual fun updateNotificationSchedules(
