@@ -598,7 +598,7 @@ private fun loadScheduledAnnouncementIdentifiers(): List<String> {
 
 private const val NOTIFICATION_PREFERENCES_SAVED_KEY = "notificationPreferencesSaved"
 private const val SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY = "scheduledAnnouncementIdentifiers"
-private const val AZAAN_SOUND_FILE_NAME = "azaan.mp3"
+private const val AZAAN_SOUND_FILE_NAME = "azaan.caf"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
 private const val CLASS_ALERT_OFFSET_MINUTES = 60
 private const val ANNOUNCEMENT_ALERT_OFFSET_MINUTES = 60
