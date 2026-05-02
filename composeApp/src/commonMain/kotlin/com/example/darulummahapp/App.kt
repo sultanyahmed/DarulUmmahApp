@@ -138,6 +138,12 @@ private data class MosqueContact(
     val address: String,
 )
 
+private data class YouTubeVideo(
+    val id: String,
+    val title: String,
+    val publishedDate: String,
+)
+
 data class ClassSession(
     val title: String,
     val day: String,
@@ -177,9 +183,13 @@ private data class CalendarDay(
 private enum class AppScreen {
     Home,
     Classes,
+    YouTube,
     Settings,
     FullCalendar,
 }
+
+internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
+private const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
 
 private val fallbackPrayerTimetable = PrayerTimetable(
     dailyPrayerTimes = listOf(
@@ -404,6 +414,7 @@ fun App() {
                             }
                         },
                     )
+                    AppScreen.YouTube -> YouTubeScreen()
                     AppScreen.Settings -> SettingsScreen(
                         notificationPreferences = notificationPreferences,
                         onNotificationPreferencesChanged = { notificationPreferences = it },
@@ -493,6 +504,12 @@ private fun NavigationTabs(
             text = "Classes & Events",
             selected = selected == AppScreen.Classes,
             onClick = { onSelected(AppScreen.Classes) },
+            modifier = Modifier.weight(1f),
+        )
+        TabButton(
+            text = "YouTube",
+            selected = selected == AppScreen.YouTube,
+            onClick = { onSelected(AppScreen.YouTube) },
             modifier = Modifier.weight(1f),
         )
     }
@@ -718,6 +735,143 @@ private fun PrayerRow(
             text = prayer.jamaahTime,
             color = if (isCurrent) Green900 else Ink,
             fontSize = 18.sp,
+            fontWeight = FontWeight.Bold,
+        )
+    }
+}
+
+@Composable
+private fun YouTubeScreen() {
+    var recentVideos by remember { mutableStateOf<List<YouTubeVideo>>(emptyList()) }
+    var recentVideosStatus by remember { mutableStateOf("Loading recent videos...") }
+    var selectedVideoId by remember { mutableStateOf<String?>(null) }
+    var refreshKey by remember { mutableIntStateOf(0) }
+
+    LaunchedEffect(refreshKey) {
+        recentVideosStatus = "Loading recent videos..."
+        runCatching {
+            parseYouTubeRecentVideos(fetchDarulUmmahYouTubeFeedXml()).take(4)
+        }.onSuccess { videos ->
+            recentVideos = videos
+            selectedVideoId = videos.firstOrNull()?.id
+            recentVideosStatus = if (videos.isEmpty()) {
+                "No recent videos were found."
+            } else {
+                "Latest videos from Darul Ummah TV"
+            }
+        }.onFailure {
+            recentVideosStatus = "Could not load recent videos."
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        InfoCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionTitle("YouTube")
+                Text(
+                    text = "Live stream from Darul Ummah TV",
+                    color = Muted,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = "The live player shows the channel stream when the mosque is live.",
+                    color = Muted,
+                    fontSize = 12.sp,
+                )
+                YouTubeLivePlayer(
+                    channelId = DarulUmmahYouTubeChannelId,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(260.dp)
+                        .clip(RoundedCornerShape(8.dp)),
+                )
+                Button(
+                    onClick = { openExternalUrl(DarulUmmahYouTubeChannelUrl) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Open YouTube channel")
+                }
+            }
+        }
+        InfoCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                SectionTitle("Previous videos")
+                Text(
+                    text = recentVideosStatus,
+                    color = if (recentVideos.isEmpty()) Muted else Green700,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                selectedVideoId?.let { videoId ->
+                    YouTubeVideoPlayer(
+                        videoId = videoId,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(230.dp)
+                            .clip(RoundedCornerShape(8.dp)),
+                    )
+                }
+                recentVideos.forEach { video ->
+                    YouTubeVideoRow(
+                        video = video,
+                        selected = video.id == selectedVideoId,
+                        onClick = { selectedVideoId = video.id },
+                    )
+                }
+                Button(
+                    onClick = { refreshKey++ },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text("Refresh videos")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun YouTubeVideoRow(
+    video: YouTubeVideo,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    val background = if (selected) Green100 else Color.Transparent
+    val border = if (selected) BorderStroke(1.dp, Green700) else BorderStroke(1.dp, Color(0xFFE2E8E4))
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(background)
+            .border(border, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Text(
+                text = video.title,
+                color = Ink,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+            )
+            if (video.publishedDate.isNotBlank()) {
+                Text(
+                    text = video.publishedDate,
+                    color = Muted,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+        Text(
+            text = if (selected) "Playing" else "Play",
+            color = if (selected) Green700 else Green900,
+            fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
         )
     }
@@ -2421,6 +2575,60 @@ private fun extractDisplayedDate(html: String): CalendarDate? {
         RegexOption.IGNORE_CASE,
     ).find(html)?.value ?: return null
     return parseCalendarDate(value)
+}
+
+private fun parseYouTubeRecentVideos(feedXml: String): List<YouTubeVideo> {
+    return Regex("<entry>([\\s\\S]*?)</entry>", RegexOption.IGNORE_CASE)
+        .findAll(feedXml)
+        .mapNotNull { entry ->
+            val entryXml = entry.groupValues[1]
+            val videoId = xmlTagValue(entryXml, "yt:videoId") ?: return@mapNotNull null
+            val title = xmlTagValue(entryXml, "title")?.let(::decodeXmlText) ?: return@mapNotNull null
+            val publishedDate = xmlTagValue(entryXml, "published")
+                ?.let(::formatYouTubePublishedDate)
+                .orEmpty()
+            YouTubeVideo(
+                id = videoId,
+                title = title,
+                publishedDate = publishedDate,
+            )
+        }
+        .toList()
+}
+
+private fun xmlTagValue(
+    xml: String,
+    tagName: String,
+): String? {
+    return Regex("<$tagName>([\\s\\S]*?)</$tagName>", RegexOption.IGNORE_CASE)
+        .find(xml)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.trim()
+}
+
+private fun decodeXmlText(value: String): String {
+    return value
+        .replace("&amp;", "&")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&#8217;", "'")
+        .replace("&#x27;", "'")
+        .replace(Regex("\\s+"), " ")
+        .trim()
+}
+
+private fun formatYouTubePublishedDate(value: String): String {
+    val date = Regex("""^(\d{4})-(\d{2})-(\d{2})""")
+        .find(value)
+        ?.groupValues
+        ?: return ""
+    val year = date.getOrNull(1) ?: return ""
+    val month = date.getOrNull(2)?.toIntOrNull() ?: return ""
+    val day = date.getOrNull(3)?.toIntOrNull() ?: return ""
+    return "${day.toString().padStart(2, '0')} ${fullMonthName(month)} $year"
 }
 
 private val monthNameRegex = Regex(

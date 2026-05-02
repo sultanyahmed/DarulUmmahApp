@@ -1,5 +1,8 @@
 package com.example.darulummahapp
 
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+
 interface Platform {
     val name: String
 }
@@ -40,6 +43,22 @@ expect fun openEmailAddress(emailAddress: String)
 
 expect fun openMapDirections(address: String)
 
+expect fun openExternalUrl(url: String)
+
+@Composable
+expect fun YouTubeLivePlayer(
+    channelId: String,
+    modifier: Modifier = Modifier,
+)
+
+@Composable
+expect fun YouTubeVideoPlayer(
+    videoId: String,
+    modifier: Modifier = Modifier,
+)
+
 expect suspend fun fetchDarulUmmahHomeHtml(): String
 
 expect suspend fun fetchDarulUmmahPrayerTimetableHtml(): String
+
+expect suspend fun fetchDarulUmmahYouTubeFeedXml(): String

@@ -234,6 +234,13 @@ actual fun openEmailAddress(emailAddress: String) {
     )
 }
 
+actual fun openExternalUrl(url: String) {
+    openUrl(
+        urlString = url,
+        failureMessage = "Could not open the link on this device.",
+    )
+}
+
 @OptIn(ExperimentalForeignApi::class)
 actual fun openMapDirections(address: String) {
     val encodedAddress = address
@@ -298,6 +305,11 @@ actual suspend fun fetchDarulUmmahHomeHtml(): String {
 @OptIn(BetaInteropApi::class)
 actual suspend fun fetchDarulUmmahPrayerTimetableHtml(): String {
     return fetchUrlString("http://www.darulummah.org.uk/mosque/prayer-timetable")
+}
+
+@OptIn(BetaInteropApi::class)
+actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
+    return fetchUrlString("https://www.youtube.com/feeds/videos.xml?channel_id=$DarulUmmahYouTubeChannelId")
 }
 
 @OptIn(BetaInteropApi::class)

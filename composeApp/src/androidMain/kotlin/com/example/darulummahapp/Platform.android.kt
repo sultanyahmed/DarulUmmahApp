@@ -187,12 +187,20 @@ actual fun openMapDirections(address: String) {
     openIntent(Intent.createChooser(mapIntent, "Open directions"))
 }
 
+actual fun openExternalUrl(url: String) {
+    openIntent(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+}
+
 actual suspend fun fetchDarulUmmahHomeHtml(): String {
     return fetchUrlString("http://www.darulummah.org.uk/")
 }
 
 actual suspend fun fetchDarulUmmahPrayerTimetableHtml(): String {
     return fetchUrlString("http://www.darulummah.org.uk/mosque/prayer-timetable")
+}
+
+actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
+    return fetchUrlString("https://www.youtube.com/feeds/videos.xml?channel_id=$DarulUmmahYouTubeChannelId")
 }
 
 private suspend fun fetchUrlString(urlString: String): String = withContext(Dispatchers.IO) {
