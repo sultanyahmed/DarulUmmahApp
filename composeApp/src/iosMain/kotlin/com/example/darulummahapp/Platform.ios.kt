@@ -101,7 +101,12 @@ actual fun updateNotificationSchedules(
     val identifiers = notificationIdentifiers()
     notificationCenter.removePendingNotificationRequestsWithIdentifiers(identifiers)
 
-    if (!preferences.prayerReminders && !preferences.countdownAlerts && !preferences.classesAndEvents) return
+    if (
+        !preferences.prayerReminders &&
+        !preferences.azanAtSalahStart &&
+        !preferences.countdownAlerts &&
+        !preferences.classesAndEvents
+    ) return
 
     notificationCenter.requestAuthorizationWithOptions(
         options = UNAuthorizationOptionAlert or UNAuthorizationOptionSound or UNAuthorizationOptionBadge,
@@ -143,6 +148,18 @@ private fun scheduleAuthorizedNotifications(
                     message = "Jama'ah is at ${prayer.time}.",
                 )
             }
+        }
+    }
+
+    if (preferences.azanAtSalahStart) {
+        timetable.dailyPrayerTimes.forEachIndexed { index, prayer ->
+            scheduleTimeIntervalNotification(
+                identifier = azanIdentifier(index),
+                timeIntervalSeconds = secondsUntilReminder(timeToMinuteOfDay(prayer.beginsTime), 0),
+                title = "${prayer.name} has begun",
+                message = "Salah begins at ${prayer.beginsTime}.",
+                soundName = AZAAN_SOUND_FILE_NAME,
+            )
         }
     }
 
@@ -188,6 +205,7 @@ actual fun loadNotificationPreferences(): NotificationPreferences {
     }
     return NotificationPreferences(
         prayerReminders = defaults.boolForKey("prayerReminders"),
+        azanAtSalahStart = defaults.boolForKey("azanAtSalahStart"),
         countdownAlerts = defaults.boolForKey("countdownAlerts"),
         classesAndEvents = defaults.boolForKey("classesAndEvents"),
     )
@@ -197,6 +215,7 @@ actual fun saveNotificationPreferences(preferences: NotificationPreferences) {
     val defaults = NSUserDefaults.standardUserDefaults
     defaults.setBool(true, NOTIFICATION_PREFERENCES_SAVED_KEY)
     defaults.setBool(preferences.prayerReminders, "prayerReminders")
+    defaults.setBool(preferences.azanAtSalahStart, "azanAtSalahStart")
     defaults.setBool(preferences.countdownAlerts, "countdownAlerts")
     defaults.setBool(preferences.classesAndEvents, "classesAndEvents")
 }
@@ -341,11 +360,12 @@ private fun scheduleTimeIntervalNotification(
     timeIntervalSeconds: Int,
     title: String,
     message: String,
+    soundName: String? = null,
 ) {
     val content = UNMutableNotificationContent().apply {
         setTitle(title)
         setBody(message)
-        setSound(UNNotificationSound.defaultSound)
+        setSound(soundName?.let { UNNotificationSound.soundNamed(it) } ?: UNNotificationSound.defaultSound)
     }
     val trigger = UNTimeIntervalNotificationTrigger.triggerWithTimeInterval(
         timeInterval = timeIntervalSeconds.toDouble(),
@@ -430,6 +450,7 @@ private fun notificationIdentifiers(): List<String> {
     return buildList {
         repeat(5) { index ->
             add("prayer-$index")
+            add(azanIdentifier(index))
             PRAYER_ALERT_OFFSETS.forEach { offsetMinutes ->
                 add(countdownIdentifier(index, offsetMinutes))
             }
@@ -537,6 +558,10 @@ private fun countdownIdentifier(
     return "countdown-$prayerIndex-$offsetMinutes"
 }
 
+private fun azanIdentifier(prayerIndex: Int): String {
+    return "azan-$prayerIndex"
+}
+
 private fun classIdentifier(classIndex: Int): String {
     return "class-$classIndex"
 }
@@ -561,6 +586,7 @@ private fun loadScheduledAnnouncementIdentifiers(): List<String> {
 
 private const val NOTIFICATION_PREFERENCES_SAVED_KEY = "notificationPreferencesSaved"
 private const val SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY = "scheduledAnnouncementIdentifiers"
+private const val AZAAN_SOUND_FILE_NAME = "azaan.mp3"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
 private const val CLASS_ALERT_OFFSET_MINUTES = 60
 private const val ANNOUNCEMENT_ALERT_OFFSET_MINUTES = 60

@@ -121,6 +121,7 @@ data class PrayerTimetable(
 
 data class NotificationPreferences(
     val prayerReminders: Boolean,
+    val azanAtSalahStart: Boolean,
     val countdownAlerts: Boolean,
     val classesAndEvents: Boolean,
 )
@@ -199,6 +200,7 @@ private val mosqueContact = MosqueContact(
 
 internal val defaultNotificationPreferences = NotificationPreferences(
     prayerReminders = true,
+    azanAtSalahStart = false,
     countdownAlerts = false,
     classesAndEvents = true,
 )
@@ -735,6 +737,14 @@ private fun NotificationSettings(
                 enabled = preferences.prayerReminders,
                 onEnabledChanged = {
                     onPreferencesChanged(preferences.copy(prayerReminders = it))
+                },
+            )
+            NotificationRow(
+                title = "Azan at salah start",
+                detail = "Play azan when each prayer begins",
+                enabled = preferences.azanAtSalahStart,
+                onEnabledChanged = {
+                    onPreferencesChanged(preferences.copy(azanAtSalahStart = it))
                 },
             )
             NotificationRow(

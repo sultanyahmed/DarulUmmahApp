@@ -89,6 +89,20 @@ actual fun updateNotificationSchedules(
         }
     }
 
+    if (preferences.azanAtSalahStart) {
+        timetable.dailyPrayerTimes.forEachIndexed { index, prayer ->
+            scheduleNotification(
+                context = context,
+                alarmManager = alarmManager,
+                requestCode = azanRequestCode(index),
+                triggerAtMillis = nextTriggerMillis(timeToMinuteOfDay(prayer.beginsTime)),
+                title = "${prayer.name} has begun",
+                message = "Salah begins at ${prayer.beginsTime}.",
+                playAzan = true,
+            )
+        }
+    }
+
     if (preferences.classesAndEvents) {
         classSchedule.forEachIndexed { index, session ->
             val day = session.reminderIsoDayOfWeek
@@ -135,6 +149,7 @@ actual fun loadNotificationPreferences(): NotificationPreferences {
     val preferences = context.getSharedPreferences(NOTIFICATION_PREFERENCES_NAME, Context.MODE_PRIVATE)
     return NotificationPreferences(
         prayerReminders = preferences.getBoolean("prayerReminders", true),
+        azanAtSalahStart = preferences.getBoolean("azanAtSalahStart", false),
         countdownAlerts = preferences.getBoolean("countdownAlerts", false),
         classesAndEvents = preferences.getBoolean("classesAndEvents", true),
     )
@@ -145,6 +160,7 @@ actual fun saveNotificationPreferences(preferences: NotificationPreferences) {
     context.getSharedPreferences(NOTIFICATION_PREFERENCES_NAME, Context.MODE_PRIVATE)
         .edit()
         .putBoolean("prayerReminders", preferences.prayerReminders)
+        .putBoolean("azanAtSalahStart", preferences.azanAtSalahStart)
         .putBoolean("countdownAlerts", preferences.countdownAlerts)
         .putBoolean("classesAndEvents", preferences.classesAndEvents)
         .apply()
@@ -220,11 +236,13 @@ private fun scheduleNotification(
     triggerAtMillis: Long,
     title: String,
     message: String,
+    playAzan: Boolean = false,
 ) {
     val intent = Intent(context, PrayerNotificationReceiver::class.java).apply {
         putExtra(PrayerNotificationReceiver.EXTRA_NOTIFICATION_ID, requestCode)
         putExtra(PrayerNotificationReceiver.EXTRA_TITLE, title)
         putExtra(PrayerNotificationReceiver.EXTRA_MESSAGE, message)
+        putExtra(PrayerNotificationReceiver.EXTRA_PLAY_AZAN, playAzan)
     }
     val pendingIntent = PendingIntent.getBroadcast(
         context,
@@ -242,6 +260,7 @@ private fun cancelScheduledNotifications(
     val requestCodes = buildList {
         addAll(LEGACY_PRAYER_NOTIFICATION_REQUEST_CODE until LEGACY_PRAYER_NOTIFICATION_REQUEST_CODE + 5)
         repeat(5) { index ->
+            add(azanRequestCode(index))
             PRAYER_ALERT_OFFSETS.forEach { offsetMinutes ->
                 add(countdownRequestCode(index, offsetMinutes))
             }
@@ -347,6 +366,10 @@ private fun countdownRequestCode(
     return COUNTDOWN_NOTIFICATION_REQUEST_CODE + prayerIndex * 100 + offsetMinutes
 }
 
+private fun azanRequestCode(prayerIndex: Int): Int {
+    return AZAN_NOTIFICATION_REQUEST_CODE + prayerIndex
+}
+
 private fun classReminderRequestCode(classIndex: Int): Int {
     return CLASS_NOTIFICATION_REQUEST_CODE + classIndex
 }
@@ -372,6 +395,7 @@ private fun loadScheduledAnnouncementRequestCodes(context: Context): List<Int> {
 
 private const val COUNTDOWN_NOTIFICATION_REQUEST_CODE = 20_000
 private const val LEGACY_PRAYER_NOTIFICATION_REQUEST_CODE = 10_000
+private const val AZAN_NOTIFICATION_REQUEST_CODE = 25_000
 private const val CLASS_NOTIFICATION_REQUEST_CODE = 30_000
 private const val ANNOUNCEMENT_NOTIFICATION_REQUEST_CODE = 40_000
 private const val NOTIFICATION_PREFERENCES_NAME = "darul_ummah_notification_preferences"
