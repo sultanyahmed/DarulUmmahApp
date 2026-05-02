@@ -10,6 +10,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.media.AudioAttributes
+import android.media.AudioManager
 import android.net.Uri
 import android.os.Build
 
@@ -30,6 +31,12 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
         val message = intent.getStringExtra(EXTRA_MESSAGE) ?: "Prayer reminder"
         val notificationId = intent.getIntExtra(EXTRA_NOTIFICATION_ID, 0)
         val playAzan = intent.getBooleanExtra(EXTRA_PLAY_AZAN, false)
+        val muteAzan = playAzan && shouldMuteAzan(context)
+        val channelId = when {
+            playAzan && muteAzan -> SILENT_AZAN_CHANNEL_ID
+            playAzan -> AZAN_CHANNEL_ID
+            else -> CHANNEL_ID
+        }
         val launchIntent = Intent(context, MainActivity::class.java)
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -39,7 +46,7 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
         )
 
         val notification = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            Notification.Builder(context, if (playAzan) AZAN_CHANNEL_ID else CHANNEL_ID)
+            Notification.Builder(context, channelId)
         } else {
             @Suppress("DEPRECATION")
             Notification.Builder(context)
@@ -50,7 +57,7 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
             .apply {
-                if (playAzan && Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+                if (playAzan && !muteAzan && Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
                     setSound(azanSoundUri(context))
                 }
             }
@@ -78,21 +85,39 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
         }
 
         val existingAzanChannel = notificationManager.getNotificationChannel(AZAN_CHANNEL_ID)
-        if (existingAzanChannel != null) return
-
-        val azanAttributes = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        val azanChannel = NotificationChannel(
-            AZAN_CHANNEL_ID,
-            "Azan at salah start",
-            NotificationManager.IMPORTANCE_HIGH,
-        ).apply {
-            description = "Plays azan when each salah begins"
-            setSound(azanSoundUri(context), azanAttributes)
+        if (existingAzanChannel == null) {
+            val azanAttributes = AudioAttributes.Builder()
+                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                .build()
+            val azanChannel = NotificationChannel(
+                AZAN_CHANNEL_ID,
+                "Azan at salah start",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Plays azan when each salah begins"
+                setSound(azanSoundUri(context), azanAttributes)
+            }
+            notificationManager.createNotificationChannel(azanChannel)
         }
-        notificationManager.createNotificationChannel(azanChannel)
+
+        val existingSilentAzanChannel = notificationManager.getNotificationChannel(SILENT_AZAN_CHANNEL_ID)
+        if (existingSilentAzanChannel == null) {
+            val silentAzanChannel = NotificationChannel(
+                SILENT_AZAN_CHANNEL_ID,
+                "Azan at salah start (silent)",
+                NotificationManager.IMPORTANCE_HIGH,
+            ).apply {
+                description = "Shows azan notifications without sound when the phone is on silent"
+                setSound(null, null)
+            }
+            notificationManager.createNotificationChannel(silentAzanChannel)
+        }
+    }
+
+    private fun shouldMuteAzan(context: Context): Boolean {
+        val audioManager = context.getSystemService(Context.AUDIO_SERVICE) as AudioManager
+        return audioManager.ringerMode != AudioManager.RINGER_MODE_NORMAL
     }
 
     private fun azanSoundUri(context: Context): Uri {
@@ -106,5 +131,6 @@ class PrayerNotificationReceiver : BroadcastReceiver() {
         const val EXTRA_PLAY_AZAN = "play_azan"
         private const val CHANNEL_ID = "darul_ummah_prayer_reminders"
         private const val AZAN_CHANNEL_ID = "darul_ummah_azan"
+        private const val SILENT_AZAN_CHANNEL_ID = "darul_ummah_azan_silent"
     }
 }
