@@ -10,6 +10,7 @@ import androidx.compose.ui.viewinterop.UIKitView
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.readValue
 import platform.Foundation.NSURL
+import platform.WebKit.WKAudiovisualMediaTypeNone
 import platform.WebKit.WKWebView
 import platform.WebKit.WKWebViewConfiguration
 
@@ -52,6 +53,8 @@ private fun YouTubeWebPlayer(
                 frame = platform.CoreGraphics.CGRectZero.readValue(),
                 configuration = WKWebViewConfiguration().apply {
                     allowsInlineMediaPlayback = true
+                    mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone
+                    preferences.javaScriptCanOpenWindowsAutomatically = true
                 },
             )
         },

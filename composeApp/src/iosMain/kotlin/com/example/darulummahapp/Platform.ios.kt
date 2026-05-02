@@ -1,24 +1,19 @@
 package com.example.darulummahapp
 
-import kotlinx.cinterop.BetaInteropApi
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.statement.bodyAsText
 import kotlinx.cinterop.ExperimentalForeignApi
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import platform.Foundation.NSCalendar
 import platform.Foundation.NSCalendarUnitHour
 import platform.Foundation.NSCalendarUnitMinute
 import platform.Foundation.NSCalendarUnitSecond
 import platform.Foundation.NSCalendarUnitWeekday
-import platform.Foundation.NSData
 import platform.Foundation.NSDate
 import platform.Foundation.NSDateComponents
-import platform.Foundation.NSString
 import platform.Foundation.NSTimeZone
 import platform.Foundation.NSURL
-import platform.Foundation.NSUTF8StringEncoding
 import platform.Foundation.NSUserDefaults
-import platform.Foundation.create
-import platform.Foundation.dataWithContentsOfURL
 import platform.Foundation.timeZoneWithName
 import platform.darwin.dispatch_async
 import platform.darwin.dispatch_get_main_queue
@@ -305,30 +300,33 @@ actual fun openMapDirections(address: String) {
     presentingController.presentViewController(actionSheet, animated = true, completion = null)
 }
 
-@OptIn(BetaInteropApi::class)
 actual suspend fun fetchDarulUmmahHomeHtml(): String {
-    return fetchUrlString("http://www.darulummah.org.uk/")
+    return fetchUrlString("http://www.darulummah.org.uk/", "Could not load Darul Ummah home page")
 }
 
-@OptIn(BetaInteropApi::class)
 actual suspend fun fetchDarulUmmahPrayerTimetableHtml(): String {
-    return fetchUrlString("http://www.darulummah.org.uk/mosque/prayer-timetable")
+    return fetchUrlString(
+        urlString = "http://www.darulummah.org.uk/mosque/prayer-timetable",
+        failureMessage = "Could not load Darul Ummah timetable",
+    )
 }
 
-@OptIn(BetaInteropApi::class)
 actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
-    return fetchUrlString("https://www.youtube.com/feeds/videos.xml?channel_id=$DarulUmmahYouTubeChannelId")
+    return fetchUrlString(
+        urlString = "https://www.youtube.com/feeds/videos.xml?channel_id=$DarulUmmahYouTubeChannelId",
+        failureMessage = "Could not load Darul Ummah YouTube feed",
+    )
 }
 
-@OptIn(BetaInteropApi::class)
-private suspend fun fetchUrlString(urlString: String): String {
-    val url = NSURL.URLWithString(urlString)
-        ?: error("Invalid Darul Ummah URL")
-    val data = withContext(Dispatchers.Default) {
-        NSData.dataWithContentsOfURL(url)
-    } ?: error("Could not load Darul Ummah timetable")
-    return NSString.create(data = data, encoding = NSUTF8StringEncoding)?.toString()
-        ?: error("Could not decode Darul Ummah timetable")
+private val iosFetchHttpClient = HttpClient()
+
+private suspend fun fetchUrlString(
+    urlString: String,
+    failureMessage: String,
+): String {
+    return runCatching {
+        iosFetchHttpClient.get(urlString).bodyAsText()
+    }.getOrElse { error(failureMessage) }
 }
 
 private fun openUrl(
@@ -548,6 +546,7 @@ private fun announcementReminderComponents(
             day = daysInMonth(year, month)
         }
     }
+    if (!isFutureDateTime(year, month, day, hour, minute)) return null
     return NSDateComponents().apply {
         this.year = year.toLong()
         this.month = month.toLong()
@@ -555,6 +554,23 @@ private fun announcementReminderComponents(
         this.hour = hour.toLong()
         this.minute = minute.toLong()
         this.second = 0
+    }
+}
+
+private fun isFutureDateTime(
+    year: Int,
+    month: Int,
+    day: Int,
+    hour: Int,
+    minute: Int,
+): Boolean {
+    val now = currentDateTimeComponents()
+    return when {
+        year != now.year -> year > now.year
+        month != now.month -> month > now.month
+        day != now.day -> day > now.day
+        hour != now.hour -> hour > now.hour
+        else -> minute > now.minute
     }
 }
 
