@@ -709,7 +709,7 @@ private fun PrayerRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = prayer.name,
                 color = Ink,
@@ -731,12 +731,26 @@ private fun PrayerRow(
                 )
             }
         }
-        Text(
-            text = prayer.jamaahTime,
-            color = if (isCurrent) Green900 else Ink,
-            fontSize = 18.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        Spacer(Modifier.width(10.dp))
+        Column(
+            modifier = Modifier.weight(1.2f),
+            horizontalAlignment = Alignment.End,
+        ) {
+            Text(
+                text = "Jama'ah starts at:",
+                color = Muted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.End,
+            )
+            Text(
+                text = prayer.jamaahTime,
+                color = if (isCurrent) Green900 else Ink,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                textAlign = TextAlign.End,
+            )
+        }
     }
 }
 
