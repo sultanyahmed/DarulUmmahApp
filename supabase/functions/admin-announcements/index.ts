@@ -85,8 +85,14 @@ async function deleteAnnouncementById(
 }
 
 function parseLondonDateTimeAsUtc(dateText: string, timeText: string) {
-  const dateMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(dateText);
-  const timeMatch = /^(\d{2}):(\d{2})$/.exec(timeText);
+  const normalizedDate = normalizeAnnouncementDate(dateText);
+  const normalizedTime = normalizeAnnouncementTime(timeText);
+  if (!normalizedDate || !normalizedTime) {
+    return null;
+  }
+
+  const dateMatch = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(normalizedDate);
+  const timeMatch = /^(\d{2}):(\d{2})$/.exec(normalizedTime);
   if (!dateMatch || !timeMatch) {
     return null;
   }
@@ -140,6 +146,65 @@ function parseLondonDateTimeAsUtc(dateText: string, timeText: string) {
     Number(verifiedParts.minute) === minute;
 
   return matchesLocalTime ? candidate : null;
+}
+
+function normalizeAnnouncementDate(value: string) {
+  const trimmed = value.trim();
+  const slashOrDashMatch = /^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$/.exec(trimmed);
+  const isoMatch = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(trimmed);
+  const day = slashOrDashMatch ? Number(slashOrDashMatch[1]) : isoMatch ? Number(isoMatch[3]) : NaN;
+  const month = slashOrDashMatch ? Number(slashOrDashMatch[2]) : isoMatch ? Number(isoMatch[2]) : NaN;
+  const year = slashOrDashMatch ? Number(slashOrDashMatch[3]) : isoMatch ? Number(isoMatch[1]) : NaN;
+
+  if (!isValidAnnouncementDate(day, month, year)) {
+    return null;
+  }
+
+  return [
+    String(day).padStart(2, "0"),
+    String(month).padStart(2, "0"),
+    String(year).padStart(4, "0"),
+  ].join("/");
+}
+
+function normalizeAnnouncementTime(value: string) {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) {
+    return null;
+  }
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (
+    !Number.isInteger(hour) ||
+    !Number.isInteger(minute) ||
+    hour < 0 ||
+    hour > 23 ||
+    minute < 0 ||
+    minute > 59
+  ) {
+    return null;
+  }
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function isValidAnnouncementDate(day: number, month: number, year: number) {
+  if (!Number.isInteger(day) || !Number.isInteger(month) || !Number.isInteger(year)) {
+    return false;
+  }
+  if (year < 2000 || year > 2099 || month < 1 || month > 12) {
+    return false;
+  }
+
+  const daysInMonth = [31, isLeapYear(year) ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][
+    month - 1
+  ];
+  return day >= 1 && day <= daysInMonth;
+}
+
+function isLeapYear(year: number) {
+  return year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
 }
 
 async function readRequestBody(request: Request): Promise<AnnouncementRequestBody> {
@@ -240,13 +305,26 @@ Deno.serve(async (request) => {
     });
   }
 
+  const normalizedStartDate = normalizeAnnouncementDate(startDate);
+  const normalizedStartTime = normalizeAnnouncementTime(startTime);
+  const normalizedEventDate = normalizeAnnouncementDate(eventDate);
+  const normalizedEventTime = normalizeAnnouncementTime(eventTime);
   let mediaUrl: string | null = null;
   let mediaPath: string | null = null;
   const startsAt = parseLondonDateTimeAsUtc(startDate, startTime);
   const expiresAt = parseLondonDateTimeAsUtc(eventDate, eventTime);
 
-  if (!startsAt || !expiresAt || Number.isNaN(startsAt.getTime()) || Number.isNaN(expiresAt.getTime())) {
-    return new Response(JSON.stringify({ error: "Start and expiry must use DD/MM/YYYY dates and HH:MM times." }), {
+  if (
+    !normalizedStartDate ||
+    !normalizedStartTime ||
+    !normalizedEventDate ||
+    !normalizedEventTime ||
+    !startsAt ||
+    !expiresAt ||
+    Number.isNaN(startsAt.getTime()) ||
+    Number.isNaN(expiresAt.getTime())
+  ) {
+    return new Response(JSON.stringify({ error: "Start and expiry must use valid dates and HH:MM times." }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
@@ -291,11 +369,11 @@ Deno.serve(async (request) => {
     description,
     media_url: mediaUrl,
     media_path: mediaPath,
-    start_date: startDate,
-    start_time: startTime,
+    start_date: normalizedStartDate,
+    start_time: normalizedStartTime,
     start_at: startsAt.toISOString(),
-    event_date: eventDate,
-    event_time: eventTime,
+    event_date: normalizedEventDate,
+    event_time: normalizedEventTime,
     expires_at: expiresAt.toISOString(),
   });
 

@@ -2123,7 +2123,7 @@ private fun AddAnnouncementCard(
                         selectedImage = selectedImage,
                     )
                     if (draft == null) {
-                        localError = "Fill in title, description, start date/time, and expiry date/time using the requested formats."
+                        localError = "Fill in title, description, valid start date/time, and valid expiry date/time."
                         return@Button
                     }
                     if (password.isBlank()) {
@@ -2249,33 +2249,81 @@ private fun buildAnnouncementDraft(
 ): AnnouncementDraft? {
     val trimmedTitle = title.trim()
     val trimmedDescription = description.trim()
-    val trimmedStartDate = startDate.trim()
-    val trimmedStartTime = startTime.trim()
-    val trimmedDate = eventDate.trim()
-    val trimmedTime = eventTime.trim()
-    val validStartDate = Regex("""\d{2}/\d{2}/\d{4}""").matches(trimmedStartDate)
-    val validStartTime = Regex("""\d{2}:\d{2}""").matches(trimmedStartTime)
-    val validDate = Regex("""\d{2}/\d{2}/\d{4}""").matches(trimmedDate)
-    val validTime = Regex("""\d{2}:\d{2}""").matches(trimmedTime)
+    val normalizedStartDate = normalizeAnnouncementDate(startDate)
+    val normalizedStartTime = normalizeAnnouncementTime(startTime)
+    val normalizedExpiryDate = normalizeAnnouncementDate(eventDate)
+    val normalizedExpiryTime = normalizeAnnouncementTime(eventTime)
     if (
         trimmedTitle.isBlank() ||
         trimmedDescription.isBlank() ||
-        !validStartDate ||
-        !validStartTime ||
-        !validDate ||
-        !validTime
+        normalizedStartDate == null ||
+        normalizedStartTime == null ||
+        normalizedExpiryDate == null ||
+        normalizedExpiryTime == null
     ) return null
     return AnnouncementDraft(
         title = trimmedTitle,
         description = trimmedDescription,
-        startDate = trimmedStartDate,
-        startTime = trimmedStartTime,
-        eventDate = trimmedDate,
-        eventTime = trimmedTime,
+        startDate = normalizedStartDate,
+        startTime = normalizedStartTime,
+        eventDate = normalizedExpiryDate,
+        eventTime = normalizedExpiryTime,
         mediaBase64 = selectedImage?.let { encodeAnnouncementImageBase64(it.bytes) },
         mediaMimeType = selectedImage?.mimeType,
         mediaFileName = selectedImage?.fileName,
     )
+}
+
+private fun normalizeAnnouncementDate(value: String): String? {
+    val trimmed = value.trim()
+    val slashOrDashMatch = Regex("""^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$""").matchEntire(trimmed)
+    val isoMatch = Regex("""^(\d{4})-(\d{1,2})-(\d{1,2})$""").matchEntire(trimmed)
+    val (day, month, year) = when {
+        slashOrDashMatch != null -> {
+            val (_, dayText, monthText, yearText) = slashOrDashMatch.groupValues
+            Triple(
+                dayText.toIntOrNull() ?: return null,
+                monthText.toIntOrNull() ?: return null,
+                yearText.toIntOrNull() ?: return null,
+            )
+        }
+        isoMatch != null -> {
+            val (_, yearText, monthText, dayText) = isoMatch.groupValues
+            Triple(
+                dayText.toIntOrNull() ?: return null,
+                monthText.toIntOrNull() ?: return null,
+                yearText.toIntOrNull() ?: return null,
+            )
+        }
+        else -> return null
+    }
+
+    if (!isValidAnnouncementDate(day, month, year)) return null
+    return "${day.toString().padStart(2, '0')}/${month.toString().padStart(2, '0')}/${
+        year.toString().padStart(4, '0')
+    }"
+}
+
+private fun normalizeAnnouncementTime(value: String): String? {
+    val match = Regex("""^(\d{1,2}):(\d{2})$""").matchEntire(value.trim()) ?: return null
+    val hour = match.groupValues[1].toIntOrNull() ?: return null
+    val minute = match.groupValues[2].toIntOrNull() ?: return null
+    if (hour !in 0..23 || minute !in 0..59) return null
+    return "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
+}
+
+private fun isValidAnnouncementDate(day: Int, month: Int, year: Int): Boolean {
+    if (year !in 2000..2099 || month !in 1..12) return false
+    val daysInMonth = when (month) {
+        4, 6, 9, 11 -> 30
+        2 -> if (isLeapYear(year)) 29 else 28
+        else -> 31
+    }
+    return day in 1..daysInMonth
+}
+
+private fun isLeapYear(year: Int): Boolean {
+    return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
 
