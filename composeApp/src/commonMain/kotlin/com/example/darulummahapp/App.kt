@@ -391,19 +391,6 @@ fun App() {
                         AppScreen.Classes -> ClassesAndEventsScreen(
                             announcements = announcements,
                             announcementStatus = announcementStatus,
-                            submitStatus = announcementSubmitStatus,
-                            onSubmitAnnouncement = { draft, password ->
-                                announcementSubmitStatus = "Sending announcement..."
-                                try {
-                                    announcementRepository.submitAnnouncement(draft, password)
-                                    val refreshedFeed = announcementRepository.fetchAnnouncements()
-                                    announcements = refreshedFeed.announcements
-                                    announcementStatus = refreshedFeed.status
-                                    announcementSubmitStatus = "Announcement sent."
-                                } catch (error: Throwable) {
-                                    announcementSubmitStatus = error.message ?: "Could not send announcement."
-                                }
-                            },
                             deleteStatus = announcementDeleteStatus,
                             onDeleteAnnouncement = { announcement, password ->
                                 announcementDeleteStatus = "Deleting announcement..."
@@ -425,6 +412,19 @@ fun App() {
                             onFullCalendarClick = {
                                 screen = AppScreen.FullCalendar
                                 calendarRefreshKey++
+                            },
+                            submitStatus = announcementSubmitStatus,
+                            onSubmitAnnouncement = { draft, password ->
+                                announcementSubmitStatus = "Sending announcement..."
+                                try {
+                                    announcementRepository.submitAnnouncement(draft, password)
+                                    val refreshedFeed = announcementRepository.fetchAnnouncements()
+                                    announcements = refreshedFeed.announcements
+                                    announcementStatus = refreshedFeed.status
+                                    announcementSubmitStatus = "Announcement sent."
+                                } catch (error: Throwable) {
+                                    announcementSubmitStatus = error.message ?: "Could not send announcement."
+                                }
                             },
                         )
                         AppScreen.FullCalendar -> FullCalendarTimetableScreen(
@@ -1056,6 +1056,8 @@ private fun SettingsScreen(
     notificationPreferences: NotificationPreferences,
     onNotificationPreferencesChanged: (NotificationPreferences) -> Unit,
     onFullCalendarClick: () -> Unit,
+    submitStatus: String?,
+    onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
 ) {
     val qiblaCompassController = remember { createQiblaCompassController() }
     val qiblaState by qiblaCompassController.state.collectAsState()
@@ -1073,6 +1075,10 @@ private fun SettingsScreen(
             onPreferencesChanged = onNotificationPreferencesChanged,
         )
         QiblaCompassCard(state = qiblaState)
+        AddAnnouncementCard(
+            submitStatus = submitStatus,
+            onSubmitAnnouncement = onSubmitAnnouncement,
+        )
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("Prayer calendar")
@@ -1780,8 +1786,6 @@ private fun fullMonthName(monthIndex: Int): String {
 private fun ClassesAndEventsScreen(
     announcements: List<Announcement>,
     announcementStatus: String,
-    submitStatus: String?,
-    onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
     deleteStatus: String?,
     onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
 ) {
@@ -1823,10 +1827,6 @@ private fun ClassesAndEventsScreen(
                 }
             }
         }
-        AddAnnouncementCard(
-            submitStatus = submitStatus,
-            onSubmitAnnouncement = onSubmitAnnouncement,
-        )
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionTitle("Custom alerts")
