@@ -356,79 +356,84 @@ fun App() {
             modifier = Modifier.fillMaxSize(),
             color = Page,
         ) {
-            Column(
+            Box(
                 modifier = Modifier
-                    .safeContentPadding()
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
                             colors = listOf(SiteBlack, Green900, Green700),
                         ),
-                    )
-                    .verticalScroll(rememberScrollState())
-                    .padding(horizontal = 18.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    ),
             ) {
-                Header(onSettingsClick = { screen = AppScreen.Settings })
-                NavigationTabs(
-                    selected = screen,
-                    onSelected = { screen = it },
-                )
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .safeContentPadding()
+                        .verticalScroll(rememberScrollState())
+                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    Header(onSettingsClick = { screen = AppScreen.Settings })
+                    NavigationTabs(
+                        selected = screen,
+                        onSelected = { screen = it },
+                    )
 
-                when (screen) {
-                    AppScreen.Home -> HomeScreen(
-                        minuteOfDay = minuteOfDay,
-                        secondOfDay = secondOfDay,
-                        isoDayOfWeek = isoDayOfWeek,
-                        prayerTimetable = prayerTimetable,
-                        updateStatus = updateStatus,
-                        onRefresh = { refreshKey++ },
-                    )
-                    AppScreen.Classes -> ClassesAndEventsScreen(
-                        announcements = announcements,
-                        announcementStatus = announcementStatus,
-                        submitStatus = announcementSubmitStatus,
-                        onSubmitAnnouncement = { draft, password ->
-                            announcementSubmitStatus = "Sending announcement..."
-                            try {
-                                announcementRepository.submitAnnouncement(draft, password)
-                                val refreshedFeed = announcementRepository.fetchAnnouncements()
-                                announcements = refreshedFeed.announcements
-                                announcementStatus = refreshedFeed.status
-                                announcementSubmitStatus = "Announcement sent."
-                            } catch (error: Throwable) {
-                                announcementSubmitStatus = error.message ?: "Could not send announcement."
-                            }
-                        },
-                        deleteStatus = announcementDeleteStatus,
-                        onDeleteAnnouncement = { announcement, password ->
-                            announcementDeleteStatus = "Deleting announcement..."
-                            try {
-                                announcementRepository.deleteAnnouncement(announcement.id, password)
-                                val refreshedFeed = announcementRepository.fetchAnnouncements()
-                                announcements = refreshedFeed.announcements
-                                announcementStatus = refreshedFeed.status
-                                announcementDeleteStatus = "Announcement deleted."
-                            } catch (error: Throwable) {
-                                announcementDeleteStatus = error.message ?: "Could not delete announcement."
-                            }
-                        },
-                    )
-                    AppScreen.YouTube -> YouTubeScreen()
-                    AppScreen.Settings -> SettingsScreen(
-                        notificationPreferences = notificationPreferences,
-                        onNotificationPreferencesChanged = { notificationPreferences = it },
-                        onFullCalendarClick = {
-                            screen = AppScreen.FullCalendar
-                            calendarRefreshKey++
-                        },
-                    )
-                    AppScreen.FullCalendar -> FullCalendarTimetableScreen(
-                        timetable = calendarTimetable,
-                        status = calendarStatus,
-                        onRefresh = { calendarRefreshKey++ },
-                        onBack = { screen = AppScreen.Settings },
-                    )
+                    when (screen) {
+                        AppScreen.Home -> HomeScreen(
+                            minuteOfDay = minuteOfDay,
+                            secondOfDay = secondOfDay,
+                            isoDayOfWeek = isoDayOfWeek,
+                            prayerTimetable = prayerTimetable,
+                            updateStatus = updateStatus,
+                            onRefresh = { refreshKey++ },
+                        )
+                        AppScreen.Classes -> ClassesAndEventsScreen(
+                            announcements = announcements,
+                            announcementStatus = announcementStatus,
+                            submitStatus = announcementSubmitStatus,
+                            onSubmitAnnouncement = { draft, password ->
+                                announcementSubmitStatus = "Sending announcement..."
+                                try {
+                                    announcementRepository.submitAnnouncement(draft, password)
+                                    val refreshedFeed = announcementRepository.fetchAnnouncements()
+                                    announcements = refreshedFeed.announcements
+                                    announcementStatus = refreshedFeed.status
+                                    announcementSubmitStatus = "Announcement sent."
+                                } catch (error: Throwable) {
+                                    announcementSubmitStatus = error.message ?: "Could not send announcement."
+                                }
+                            },
+                            deleteStatus = announcementDeleteStatus,
+                            onDeleteAnnouncement = { announcement, password ->
+                                announcementDeleteStatus = "Deleting announcement..."
+                                try {
+                                    announcementRepository.deleteAnnouncement(announcement.id, password)
+                                    val refreshedFeed = announcementRepository.fetchAnnouncements()
+                                    announcements = refreshedFeed.announcements
+                                    announcementStatus = refreshedFeed.status
+                                    announcementDeleteStatus = "Announcement deleted."
+                                } catch (error: Throwable) {
+                                    announcementDeleteStatus = error.message ?: "Could not delete announcement."
+                                }
+                            },
+                        )
+                        AppScreen.YouTube -> YouTubeScreen()
+                        AppScreen.Settings -> SettingsScreen(
+                            notificationPreferences = notificationPreferences,
+                            onNotificationPreferencesChanged = { notificationPreferences = it },
+                            onFullCalendarClick = {
+                                screen = AppScreen.FullCalendar
+                                calendarRefreshKey++
+                            },
+                        )
+                        AppScreen.FullCalendar -> FullCalendarTimetableScreen(
+                            timetable = calendarTimetable,
+                            status = calendarStatus,
+                            onRefresh = { calendarRefreshKey++ },
+                            onBack = { screen = AppScreen.Settings },
+                        )
+                    }
                 }
             }
         }
