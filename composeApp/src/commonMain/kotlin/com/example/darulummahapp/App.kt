@@ -196,12 +196,15 @@ private enum class AppScreen {
     Home,
     Classes,
     YouTube,
+    Donate,
+    Qibla,
     Settings,
     FullCalendar,
 }
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
 private const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
+private const val DarulUmmahDonationUrl = "https://www.darulummah.org.uk/info/donation"
 
 private val fallbackPrayerTimetable = PrayerTimetable(
     dailyPrayerTimes = listOf(
@@ -418,6 +421,8 @@ fun App() {
                             },
                         )
                         AppScreen.YouTube -> YouTubeScreen()
+                        AppScreen.Donate -> DonateScreen()
+                        AppScreen.Qibla -> QiblaCompassScreen()
                         AppScreen.Settings -> SettingsScreen(
                             notificationPreferences = notificationPreferences,
                             onNotificationPreferencesChanged = { notificationPreferences = it },
@@ -530,6 +535,18 @@ private fun NavigationTabs(
             text = "YouTube",
             selected = selected == AppScreen.YouTube,
             onClick = { onSelected(AppScreen.YouTube) },
+            modifier = Modifier.weight(1f),
+        )
+        TabButton(
+            text = "Donate",
+            selected = selected == AppScreen.Donate,
+            onClick = { onSelected(AppScreen.Donate) },
+            modifier = Modifier.weight(1f),
+        )
+        TabButton(
+            text = "Qibla Compass",
+            selected = selected == AppScreen.Qibla,
+            onClick = { onSelected(AppScreen.Qibla) },
             modifier = Modifier.weight(1f),
         )
     }
@@ -865,6 +882,32 @@ private fun YouTubeScreen() {
 }
 
 @Composable
+private fun DonateScreen() {
+    InfoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionTitle("Donate")
+            Text(
+                text = "Support Darul Ummah Shadwell with a one-off or regular donation.",
+                color = Muted,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "The donation page opens in your browser so payments are handled securely by the mosque's online donation provider.",
+                color = Muted,
+                fontSize = 12.sp,
+            )
+            Button(
+                onClick = { openExternalUrl(DarulUmmahDonationUrl) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("Donate to the mosque")
+            }
+        }
+    }
+}
+
+@Composable
 private fun YouTubeVideoRow(
     video: YouTubeVideo,
     selected: Boolean,
@@ -1074,22 +1117,11 @@ private fun SettingsScreen(
     submitStatus: String?,
     onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
 ) {
-    val qiblaCompassController = remember { createQiblaCompassController() }
-    val qiblaState by qiblaCompassController.state.collectAsState()
-
-    DisposableEffect(qiblaCompassController) {
-        qiblaCompassController.start()
-        onDispose {
-            qiblaCompassController.stop()
-        }
-    }
-
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         NotificationSettings(
             preferences = notificationPreferences,
             onPreferencesChanged = onNotificationPreferencesChanged,
         )
-        QiblaCompassCard(state = qiblaState)
         AddAnnouncementCard(
             submitStatus = submitStatus,
             onSubmitAnnouncement = onSubmitAnnouncement,
@@ -1108,6 +1140,21 @@ private fun SettingsScreen(
             }
         }
     }
+}
+
+@Composable
+private fun QiblaCompassScreen() {
+    val qiblaCompassController = remember { createQiblaCompassController() }
+    val qiblaState by qiblaCompassController.state.collectAsState()
+
+    DisposableEffect(qiblaCompassController) {
+        qiblaCompassController.start()
+        onDispose {
+            qiblaCompassController.stop()
+        }
+    }
+
+    QiblaCompassCard(state = qiblaState)
 }
 
 @Composable
