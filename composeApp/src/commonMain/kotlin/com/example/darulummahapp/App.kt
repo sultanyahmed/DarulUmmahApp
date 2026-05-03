@@ -52,15 +52,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
@@ -201,6 +202,29 @@ private enum class AppScreen {
     Settings,
     FullCalendar,
 }
+
+private enum class BottomNavIcon {
+    Time,
+    Events,
+    Donate,
+    Live,
+    Compass,
+}
+
+private data class BottomNavItem(
+    val screen: AppScreen,
+    val label: String,
+    val icon: BottomNavIcon,
+    val prominent: Boolean = false,
+)
+
+private val bottomNavItems = listOf(
+    BottomNavItem(AppScreen.Home, "Times", BottomNavIcon.Time),
+    BottomNavItem(AppScreen.Classes, "Events", BottomNavIcon.Events),
+    BottomNavItem(AppScreen.Donate, "Donate", BottomNavIcon.Donate, prominent = true),
+    BottomNavItem(AppScreen.YouTube, "Live", BottomNavIcon.Live),
+    BottomNavItem(AppScreen.Qibla, "Qibla", BottomNavIcon.Compass),
+)
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
 private const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
@@ -385,14 +409,10 @@ fun App() {
                         .fillMaxSize()
                         .safeContentPadding()
                         .verticalScroll(rememberScrollState())
-                        .padding(horizontal = 18.dp, vertical = 16.dp),
+                        .padding(start = 18.dp, top = 16.dp, end = 18.dp, bottom = 128.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
                     Header(onSettingsClick = { screen = AppScreen.Settings })
-                    NavigationTabs(
-                        selected = screen,
-                        onSelected = { screen = it },
-                    )
 
                     when (screen) {
                         AppScreen.Home -> HomeScreen(
@@ -455,6 +475,11 @@ fun App() {
                         )
                     }
                 }
+                BottomNavigationBar(
+                    selected = screen,
+                    onSelected = { screen = it },
+                    modifier = Modifier.align(Alignment.BottomCenter),
+                )
             }
         }
     }
@@ -507,72 +532,136 @@ private fun Header(
 }
 
 @Composable
-private fun NavigationTabs(
+private fun BottomNavigationBar(
     selected: AppScreen,
     onSelected: (AppScreen) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = Modifier
+    Box(
+        modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(8.dp))
-            .background(SiteCharcoal)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.dp),
+            .safeContentPadding()
+            .padding(horizontal = 14.dp, vertical = 10.dp),
     ) {
-        TabButton(
-            text = "Prayer Times",
-            selected = selected == AppScreen.Home,
-            onClick = { onSelected(AppScreen.Home) },
-            modifier = Modifier.weight(1f),
-        )
-        TabButton(
-            text = "Classes & Events",
-            selected = selected == AppScreen.Classes,
-            onClick = { onSelected(AppScreen.Classes) },
-            modifier = Modifier.weight(1f),
-        )
-        TabButton(
-            text = "YouTube",
-            selected = selected == AppScreen.YouTube,
-            onClick = { onSelected(AppScreen.YouTube) },
-            modifier = Modifier.weight(1f),
-        )
-        TabButton(
-            text = "Donate",
-            selected = selected == AppScreen.Donate,
-            onClick = { onSelected(AppScreen.Donate) },
-            modifier = Modifier.weight(1f),
-        )
-        TabButton(
-            text = "Qibla Compass",
-            selected = selected == AppScreen.Qibla,
-            onClick = { onSelected(AppScreen.Qibla) },
-            modifier = Modifier.weight(1f),
-        )
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(82.dp)
+                .shadow(18.dp, RoundedCornerShape(24.dp), ambientColor = Color.Black.copy(alpha = 0.24f))
+                .clip(RoundedCornerShape(24.dp))
+                .background(Color.White)
+                .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(24.dp))
+                .padding(horizontal = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            bottomNavItems.forEach { item ->
+                BottomNavigationItem(
+                    item = item,
+                    selected = selected == item.screen,
+                    onClick = { onSelected(item.screen) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 
 @Composable
-private fun TabButton(
-    text: String,
+private fun BottomNavigationItem(
+    item: BottomNavItem,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val container = if (selected) Green900 else Color.Transparent
-    val content = if (selected) Gold else Color.White
+    val activeColor = Green900
+    val inactiveColor = Muted.copy(alpha = 0.72f)
+    val contentColor = if (selected) activeColor else inactiveColor
     TextButton(
         onClick = onClick,
-        modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(container),
+        modifier = modifier.height(82.dp),
     ) {
-        Text(
-            text = text,
-            color = content,
-            fontWeight = FontWeight.SemiBold,
-            textAlign = TextAlign.Center,
-        )
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Box(
+                modifier = if (item.prominent) {
+                    Modifier
+                        .size(64.dp)
+                        .shadow(14.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.32f))
+                        .clip(CircleShape)
+                        .background(if (selected) Green900 else Green700)
+                } else {
+                    Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(if (selected) Green100 else Color.Transparent)
+                },
+                contentAlignment = Alignment.Center,
+            ) {
+                BottomNavIcon(
+                    icon = item.icon,
+                    color = if (item.prominent) Color.White else contentColor,
+                    modifier = Modifier.size(if (item.prominent) 34.dp else 26.dp),
+                )
+            }
+            Text(
+                text = item.label,
+                color = if (item.prominent && selected) Green900 else contentColor,
+                fontSize = 12.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
+}
+
+@Composable
+private fun BottomNavIcon(
+    icon: BottomNavIcon,
+    color: Color,
+    modifier: Modifier = Modifier,
+) {
+    Canvas(modifier = modifier) {
+        val strokeWidth = 2.2.dp.toPx()
+        val stroke = Stroke(width = strokeWidth, cap = StrokeCap.Round)
+        when (icon) {
+            BottomNavIcon.Time -> {
+                drawCircle(color = color, radius = size.minDimension * 0.42f, style = stroke)
+                drawLine(color, center, Offset(center.x, center.y - size.height * 0.24f), strokeWidth, StrokeCap.Round)
+                drawLine(color, center, Offset(center.x + size.width * 0.2f, center.y + size.height * 0.08f), strokeWidth, StrokeCap.Round)
+            }
+            BottomNavIcon.Events -> {
+                val left = size.width * 0.24f
+                val right = size.width * 0.76f
+                drawLine(color, Offset(left, size.height * 0.22f), Offset(right, size.height * 0.22f), strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(left, size.height * 0.4f), Offset(right, size.height * 0.4f), strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(left, size.height * 0.58f), Offset(right * 0.88f, size.height * 0.58f), strokeWidth, StrokeCap.Round)
+                drawCircle(color = color, radius = 2.4.dp.toPx(), center = Offset(size.width * 0.17f, size.height * 0.22f))
+                drawCircle(color = color, radius = 2.4.dp.toPx(), center = Offset(size.width * 0.17f, size.height * 0.4f))
+                drawCircle(color = color, radius = 2.4.dp.toPx(), center = Offset(size.width * 0.17f, size.height * 0.58f))
+            }
+            BottomNavIcon.Donate -> {
+                drawLine(color, Offset(size.width * 0.18f, size.height * 0.6f), Offset(size.width * 0.42f, size.height * 0.76f), 4.dp.toPx(), StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.42f, size.height * 0.76f), Offset(size.width * 0.78f, size.height * 0.62f), 4.dp.toPx(), StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.34f, size.height * 0.52f), Offset(size.width * 0.64f, size.height * 0.52f), 4.dp.toPx(), StrokeCap.Round)
+                drawCircle(color = color, radius = size.minDimension * 0.18f, center = Offset(size.width * 0.5f, size.height * 0.24f), style = stroke)
+            }
+            BottomNavIcon.Live -> {
+                drawCircle(color = color, radius = size.minDimension * 0.1f, center = center)
+                drawCircle(color = color.copy(alpha = 0.4f), radius = size.minDimension * 0.26f, style = stroke)
+                drawCircle(color = color.copy(alpha = 0.26f), radius = size.minDimension * 0.42f, style = stroke)
+            }
+            BottomNavIcon.Compass -> {
+                drawCircle(color = color, radius = size.minDimension * 0.4f, style = stroke)
+                drawLine(color, Offset(center.x, size.height * 0.18f), Offset(center.x, size.height * 0.08f), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(color, Offset(center.x, size.height * 0.82f), Offset(center.x, size.height * 0.92f), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.18f, center.y), Offset(size.width * 0.08f, center.y), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.82f, center.y), Offset(size.width * 0.92f, center.y), 2.dp.toPx(), StrokeCap.Round)
+                drawLine(color, center, Offset(center.x + size.width * 0.14f, center.y - size.height * 0.22f), 2.4.dp.toPx(), StrokeCap.Round)
+            }
+        }
     }
 }
 
