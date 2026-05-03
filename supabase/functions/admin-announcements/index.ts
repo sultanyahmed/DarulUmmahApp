@@ -3,13 +3,34 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, apikey, content-type, x-announcement-password",
+  "Access-Control-Allow-Methods": "DELETE, OPTIONS, POST",
 };
 const announcementTimeZone = "Europe/London";
-const fallbackAnnouncementAdminPassword = "A4ZHkdpZij18B7W1";
 
 type AnnouncementRequestBody = Record<string, unknown>;
+type AnnouncementRow = {
+  id: string;
+  media_path: string | null;
+};
+type Database = {
+  public: {
+    Tables: {
+      announcements: {
+        Row: AnnouncementRow;
+        Insert: Record<string, unknown>;
+        Update: Record<string, unknown>;
+        Relationships: [];
+      };
+    };
+    Views: Record<string, never>;
+    Functions: Record<string, never>;
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
+type SupabaseClient = ReturnType<typeof createClient<Database>>;
 
-async function cleanupExpiredAnnouncements(supabase: ReturnType<typeof createClient>) {
+async function cleanupExpiredAnnouncements(supabase: SupabaseClient) {
   const nowIso = new Date().toISOString();
   const { data: expiredRows, error: fetchExpiredError } = await supabase
     .from("announcements")
@@ -48,7 +69,7 @@ async function cleanupExpiredAnnouncements(supabase: ReturnType<typeof createCli
 }
 
 async function deleteAnnouncementById(
-  supabase: ReturnType<typeof createClient>,
+  supabase: SupabaseClient,
   announcementId: string,
 ) {
   const { data: row, error: fetchError } = await supabase
@@ -241,51 +262,55 @@ Deno.serve(async (request) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
-  const expectedPassword = Deno.env.get("ANNOUNCEMENT_ADMIN_PASSWORD") ?? fallbackAnnouncementAdminPassword;
+  if (request.method !== "POST" && request.method !== "DELETE") {
+    return jsonResponse({ error: "Method not allowed." }, 405);
+  }
+
+  const expectedPassword = Deno.env.get("ANNOUNCEMENT_ADMIN_PASSWORD");
+  if (!expectedPassword) {
+    return jsonResponse({ error: "Announcement admin password is not configured." }, 500);
+  }
+
   const suppliedPassword = request.headers.get("x-announcement-password");
-  if (!expectedPassword || suppliedPassword !== expectedPassword) {
-    return new Response(JSON.stringify({ error: "Invalid announcement password." }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  if (suppliedPassword !== expectedPassword) {
+    return jsonResponse({ error: "Invalid announcement password." }, 401);
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
   const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   if (!supabaseUrl || !serviceRoleKey) {
-    return new Response(JSON.stringify({ error: "Supabase function secrets are not configured." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Supabase function secrets are not configured." }, 500);
   }
 
-  const supabase = createClient(supabaseUrl, serviceRoleKey);
-  await cleanupExpiredAnnouncements(supabase);
-  const body = await readRequestBody(request);
+  const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
+  try {
+    await cleanupExpiredAnnouncements(supabase);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Could not clean up expired announcements.";
+    return jsonResponse({ error: message }, 500);
+  }
+
+  let body: AnnouncementRequestBody;
+  try {
+    body = await readRequestBody(request);
+  } catch {
+    return jsonResponse({ error: "Request body must be valid JSON." }, 400);
+  }
 
   if (request.method === "DELETE") {
     const announcementId = readBodyString(body, "announcementId", "announcement_id", "id");
     if (!announcementId) {
-      return new Response(JSON.stringify({ error: "Announcement ID is required." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: "Announcement ID is required." }, 400);
     }
 
     try {
       await deleteAnnouncementById(supabase, announcementId);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Could not delete announcement.";
-      return new Response(JSON.stringify({ error: message }), {
-        status: message == "Announcement not found." ? 404 : 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: message }, message == "Announcement not found." ? 404 : 400);
     }
 
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ success: true }, 200);
   }
 
   const title = readBodyString(body, "title");
@@ -299,10 +324,7 @@ Deno.serve(async (request) => {
   const mediaFileName = readBodyString(body, "mediaFileName", "media_file_name");
 
   if (!title || !description || !startDate || !startTime || !eventDate || !eventTime) {
-    return new Response(JSON.stringify({ error: "Title, description, start date/time, and expiry date/time are required." }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Title, description, start date/time, and expiry date/time are required." }, 400);
   }
 
   const normalizedStartDate = normalizeAnnouncementDate(startDate);
@@ -324,21 +346,21 @@ Deno.serve(async (request) => {
     Number.isNaN(startsAt.getTime()) ||
     Number.isNaN(expiresAt.getTime())
   ) {
-    return new Response(JSON.stringify({ error: "Start and expiry must use valid dates and HH:MM times." }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Start and expiry must use valid dates and HH:MM times." }, 400);
   }
   if (expiresAt.getTime() <= startsAt.getTime()) {
-    return new Response(JSON.stringify({ error: "Expiry time must be after the start time." }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: "Expiry time must be after the start time." }, 400);
   }
 
   if (mediaBase64) {
-    const cleanBase64 = mediaBase64.replace(/\s+/g, "");
-    const binary = Uint8Array.from(atob(cleanBase64), (char) => char.charCodeAt(0));
+    let binary: Uint8Array;
+    try {
+      const cleanBase64 = mediaBase64.replace(/\s+/g, "");
+      binary = Uint8Array.from(atob(cleanBase64), (char) => char.charCodeAt(0));
+    } catch {
+      return jsonResponse({ error: "Announcement image data must be valid base64." }, 400);
+    }
+
     const extension = mediaFileName.includes(".")
       ? mediaFileName.split(".").pop()
       : mediaMimeType.split("/").pop() || "jpg";
@@ -351,10 +373,7 @@ Deno.serve(async (request) => {
       });
 
     if (uploadError) {
-      return new Response(JSON.stringify({ error: uploadError.message }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return jsonResponse({ error: uploadError.message }, 400);
     }
 
     const { data: publicUrlData } = supabase.storage
@@ -378,14 +397,15 @@ Deno.serve(async (request) => {
   });
 
   if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return jsonResponse({ error: error.message }, 400);
   }
 
-  return new Response(JSON.stringify({ success: true }), {
-    status: 200,
+  return jsonResponse({ success: true }, 200);
+});
+
+function jsonResponse(body: Record<string, unknown>, status: number) {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
-});
+}
