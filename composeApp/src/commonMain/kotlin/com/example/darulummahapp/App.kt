@@ -2441,8 +2441,8 @@ private fun parseCalendarPrayerRow(
             fajrBegins = times[0],
             sunrise = times[1],
             fajrJamaah = times[2],
-            dhuhrBegins = times[3],
-            dhuhrJamaah = times[4],
+            dhuhrBegins = normalizeDhuhrClockTime(times[3]),
+            dhuhrJamaah = normalizeDhuhrClockTime(times[4]),
             asrBegins = times[5],
             asrJamaah = times[6],
             maghribBegins = times[7],
@@ -2454,8 +2454,8 @@ private fun parseCalendarPrayerRow(
             fajrBegins = times[0],
             fajrJamaah = times[0],
             sunrise = times[1],
-            dhuhrBegins = times[2],
-            dhuhrJamaah = times[2],
+            dhuhrBegins = normalizeDhuhrClockTime(times[2]),
+            dhuhrJamaah = normalizeDhuhrClockTime(times[2]),
             asrBegins = times[3],
             asrJamaah = times[3],
             maghribBegins = times[4],
@@ -2721,6 +2721,13 @@ private fun cleanHtmlText(value: String): String {
 private fun normalizeClockTime(value: String): String {
     val parts = value.split(":")
     return "${parts[0].padStart(2, '0')}:${parts[1]}"
+}
+
+private fun normalizeDhuhrClockTime(value: String): String {
+    val parts = value.split(":")
+    val hour = parts[0].toInt()
+    if (hour != 1) return value
+    return "13:${parts[1]}"
 }
 
 private fun toMinuteOfDay(
