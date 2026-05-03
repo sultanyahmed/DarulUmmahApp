@@ -1,4 +1,3 @@
-create extension if not exists pg_cron;
 create extension if not exists pgcrypto;
 
 create table if not exists public.announcements (
@@ -7,6 +6,9 @@ create table if not exists public.announcements (
     description text not null,
     media_url text,
     media_path text,
+    start_date text not null,
+    start_time text not null,
+    start_at timestamptz not null,
     event_date text not null,
     event_time text not null,
     expires_at timestamptz not null,

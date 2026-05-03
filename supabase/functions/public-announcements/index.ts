@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,7 +13,6 @@ type AnnouncementRow = {
   media_url: string | null;
   start_date: string;
   start_time: string;
-  start_at: string;
   event_date: string;
   event_time: string;
   expires_at: string;
@@ -35,7 +34,6 @@ type Database = {
     CompositeTypes: Record<string, never>;
   };
 };
-type SupabaseClient = ReturnType<typeof createClient<Database>>;
 
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
@@ -52,13 +50,11 @@ Deno.serve(async (request) => {
     return jsonResponse({ error: "Supabase function secrets are not configured." }, 500);
   }
 
-  const supabase: SupabaseClient = createClient<Database>(supabaseUrl, anonKey);
   const nowIso = new Date().toISOString();
-
+  const supabase = createClient<Database>(supabaseUrl, anonKey);
   const { data, error } = await supabase
     .from("announcements")
     .select("id,title,description,media_url,start_date,start_time,event_date,event_time,created_at")
-    .lte("start_at", nowIso)
     .gt("expires_at", nowIso)
     .order("created_at", { ascending: false });
 

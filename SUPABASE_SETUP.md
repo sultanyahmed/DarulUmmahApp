@@ -21,8 +21,8 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### Database
 
-Apply [202604240001_create_announcements.sql](/Users/sultanyousufahmed/Downloads/DarulUmmahApp/supabase/migrations/202604240001_create_announcements.sql:1).
-This creates the `announcements` table and the public storage bucket used for attached images.
+Apply every migration in [supabase/migrations](/Users/sultanyousufahmed/Downloads/DarulUmmahApp/supabase/migrations) in filename order.
+These migrations create the `announcements` table, start/expiry scheduling columns, and the public storage bucket used for attached images.
 
 ### Edge Function
 
@@ -37,4 +37,4 @@ SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 `ANNOUNCEMENT_ADMIN_PASSWORD` is required. The admin Edge Function intentionally has no fallback password.
 
 Once the migration and function are live, the app can publish announcements with an on-device image upload and every device will receive them in real time.
-Expired announcements are filtered out on reads and are cleaned up together with their uploaded images the next time the announcements endpoints are hit.
+Expired announcements are filtered out on reads and are cleaned up together with their uploaded images the next time the admin announcements endpoint is hit.

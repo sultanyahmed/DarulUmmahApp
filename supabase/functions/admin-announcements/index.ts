@@ -1,4 +1,4 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -49,10 +49,8 @@ async function cleanupExpiredAnnouncements(supabase: SupabaseClient) {
     const { error: storageDeleteError } = await supabase.storage
       .from("announcement-media")
       .remove(mediaPaths);
-
-    if (storageDeleteError) {
-      throw new Error(storageDeleteError.message);
-    }
+    // Expired database rows should still be removed if storage cleanup has a transient failure.
+    if (storageDeleteError) console.error(`Expired media cleanup failed: ${storageDeleteError.message}`);
   }
 
   const expiredIds = (expiredRows ?? []).map((row) => row.id);
@@ -89,10 +87,7 @@ async function deleteAnnouncementById(
     const { error: storageDeleteError } = await supabase.storage
       .from("announcement-media")
       .remove([row.media_path]);
-
-    if (storageDeleteError) {
-      throw new Error(storageDeleteError.message);
-    }
+    if (storageDeleteError) console.error(`Announcement media cleanup failed: ${storageDeleteError.message}`);
   }
 
   const { error: deleteError } = await supabase
@@ -286,8 +281,7 @@ Deno.serve(async (request) => {
   try {
     await cleanupExpiredAnnouncements(supabase);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Could not clean up expired announcements.";
-    return jsonResponse({ error: message }, 500);
+    console.error(error instanceof Error ? error.message : "Expired announcement cleanup failed.");
   }
 
   let body: AnnouncementRequestBody;
