@@ -6,6 +6,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.post
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsBytes
 import io.ktor.client.statement.bodyAsText
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
@@ -89,6 +90,11 @@ private data class FunctionErrorResponse(
     val message: String? = null,
 )
 
+@Serializable
+private data class AnnouncementCreateResponse(
+    val announcement: Announcement? = null,
+)
+
 private const val announcementPollIntervalMillis = 30_000L
 
 private val announcementsJson = Json {
@@ -144,7 +150,7 @@ class AnnouncementRepository(
     suspend fun submitAnnouncement(
         draft: AnnouncementDraft,
         password: String,
-    ) {
+    ): Announcement? {
         require(config.isConfigured) { "Supabase configuration is missing." }
         val functionsUrl = requireNotNull(config.functionsUrl) {
             "Supabase URL must point to a hosted Supabase project."
@@ -173,7 +179,7 @@ class AnnouncementRepository(
         val responseBody = response.bodyAsText()
 
         when (response.status.value) {
-            in 200..299 -> return
+            in 200..299 -> return parseCreatedAnnouncement(responseBody)
             404 -> error(missingBackendMessage())
             else -> error(parseFunctionError(responseBody) ?: "Could not send announcement.")
         }
@@ -206,6 +212,11 @@ class AnnouncementRepository(
             else -> error(parseFunctionError(responseBody) ?: "Could not delete announcement.")
         }
     }
+}
+
+suspend fun loadAnnouncementMedia(url: String): ByteArray {
+    val response = announcementHttpClient.get(url)
+    return response.bodyAsBytes()
 }
 
 private suspend fun loadAnnouncements(config: SupabaseProjectConfig): AnnouncementFeed {
@@ -246,6 +257,12 @@ private fun parseFunctionError(responseBody: String): String? {
     }.getOrNull()?.let { error ->
         error.error ?: error.message
     }
+}
+
+private fun parseCreatedAnnouncement(responseBody: String): Announcement? {
+    return runCatching {
+        announcementsJson.decodeFromString<AnnouncementCreateResponse>(responseBody).announcement
+    }.getOrNull()
 }
 
 private fun missingBackendMessage(): String {

@@ -1,9 +1,12 @@
 package com.example.darulummahapp
 
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.toComposeImageBitmap
 import kotlinx.cinterop.BetaInteropApi
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.addressOf
 import kotlinx.cinterop.usePinned
+import org.jetbrains.skia.Image
 import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
 import platform.Foundation.base64EncodedStringWithOptions
@@ -89,6 +92,10 @@ actual suspend fun pickAnnouncementImage(): PickedAnnouncementImage? {
 @OptIn(ExperimentalForeignApi::class)
 actual fun encodeAnnouncementImageBase64(bytes: ByteArray): String {
     return bytes.toNSData().base64EncodedStringWithOptions(0u)
+}
+
+actual fun decodeAnnouncementImageBitmap(bytes: ByteArray): ImageBitmap? {
+    return runCatching { Image.makeFromEncoded(bytes).toComposeImageBitmap() }.getOrNull()
 }
 
 @OptIn(ExperimentalForeignApi::class)

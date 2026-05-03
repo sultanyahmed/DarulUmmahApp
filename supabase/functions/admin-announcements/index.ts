@@ -10,7 +10,15 @@ const announcementTimeZone = "Europe/London";
 type AnnouncementRequestBody = Record<string, unknown>;
 type AnnouncementRow = {
   id: string;
+  title: string;
+  description: string;
+  media_url: string | null;
   media_path: string | null;
+  start_date: string;
+  start_time: string;
+  event_date: string;
+  event_time: string;
+  created_at: string;
 };
 type Database = {
   public: {
@@ -377,24 +385,34 @@ Deno.serve(async (request) => {
     mediaPath = storagePath;
   }
 
-  const { error } = await supabase.from("announcements").insert({
-    title,
-    description,
-    media_url: mediaUrl,
-    media_path: mediaPath,
-    start_date: normalizedStartDate,
-    start_time: normalizedStartTime,
-    start_at: startsAt.toISOString(),
-    event_date: normalizedEventDate,
-    event_time: normalizedEventTime,
-    expires_at: expiresAt.toISOString(),
-  });
+  const { data: announcement, error } = await supabase
+    .from("announcements")
+    .insert({
+      title,
+      description,
+      media_url: mediaUrl,
+      media_path: mediaPath,
+      start_date: normalizedStartDate,
+      start_time: normalizedStartTime,
+      start_at: startsAt.toISOString(),
+      event_date: normalizedEventDate,
+      event_time: normalizedEventTime,
+      expires_at: expiresAt.toISOString(),
+    })
+    .select("id,title,description,media_url,start_date,start_time,event_date,event_time,created_at")
+    .single();
 
   if (error) {
+    if (mediaPath) {
+      const { error: storageDeleteError } = await supabase.storage
+        .from("announcement-media")
+        .remove([mediaPath]);
+      if (storageDeleteError) console.error(`Failed announcement media cleanup failed: ${storageDeleteError.message}`);
+    }
     return jsonResponse({ error: error.message }, 400);
   }
 
-  return jsonResponse({ success: true }, 200);
+  return jsonResponse({ success: true, announcement }, 200);
 });
 
 function jsonResponse(body: Record<string, unknown>, status: number) {

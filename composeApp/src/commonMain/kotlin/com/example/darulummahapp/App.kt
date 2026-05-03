@@ -7,6 +7,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -55,11 +56,13 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -100,6 +103,15 @@ private fun timeOptionLabel(hour: Int, minute: Int): String {
     val hourText = if (hour < 10) "0$hour" else hour.toString()
     val minuteText = if (minute < 10) "0$minute" else minute.toString()
     return "$hourText:$minuteText"
+}
+
+private fun mergeCreatedAnnouncement(
+    createdAnnouncement: Announcement?,
+    refreshedAnnouncements: List<Announcement>,
+): List<Announcement> {
+    if (createdAnnouncement == null) return refreshedAnnouncements
+    return (listOf(createdAnnouncement) + refreshedAnnouncements.filterNot { it.id == createdAnnouncement.id })
+        .sortedByDescending { it.createdAt }
 }
 
 data class PrayerTime(
@@ -417,9 +429,12 @@ fun App() {
                             onSubmitAnnouncement = { draft, password ->
                                 announcementSubmitStatus = "Sending announcement..."
                                 try {
-                                    announcementRepository.submitAnnouncement(draft, password)
+                                    val createdAnnouncement = announcementRepository.submitAnnouncement(draft, password)
                                     val refreshedFeed = announcementRepository.fetchAnnouncements()
-                                    announcements = refreshedFeed.announcements
+                                    announcements = mergeCreatedAnnouncement(
+                                        createdAnnouncement = createdAnnouncement,
+                                        refreshedAnnouncements = refreshedFeed.announcements,
+                                    )
                                     announcementStatus = refreshedFeed.status
                                     announcementSubmitStatus = "Announcement sent."
                                 } catch (error: Throwable) {
@@ -2162,13 +2177,15 @@ private fun AnnouncementRow(
     isDeleting: Boolean = false,
     onDelete: (() -> Unit)? = null,
 ) {
+    val mediaUrl = announcement.mediaUrl?.takeIf { it.isNotBlank() }
     ScheduleRow(
         title = announcement.title,
         meta = "Starts ${announcement.startDate} at ${announcement.startTime}",
         detail = announcement.description,
+        mediaUrl = mediaUrl,
         footer = buildList {
             add("Expires ${announcement.eventDate} at ${announcement.eventTime}")
-            if (!announcement.mediaUrl.isNullOrBlank()) add("Photo attached")
+            if (mediaUrl != null) add("Photo attached")
         }.joinToString(" • "),
         action = onDelete?.let { deleteAction ->
             {
@@ -2188,6 +2205,7 @@ private fun ScheduleRow(
     title: String,
     meta: String,
     detail: String,
+    mediaUrl: String? = null,
     footer: String? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
@@ -2217,6 +2235,12 @@ private fun ScheduleRow(
             color = Muted,
             fontSize = 13.sp,
         )
+        mediaUrl?.let {
+            AnnouncementPoster(
+                mediaUrl = it,
+                modifier = Modifier.padding(top = 6.dp),
+            )
+        }
         footer?.let {
             Text(
                 text = it,
@@ -2226,6 +2250,62 @@ private fun ScheduleRow(
             )
         }
         action?.invoke()
+    }
+}
+
+@Composable
+private fun AnnouncementPoster(
+    mediaUrl: String,
+    modifier: Modifier = Modifier,
+) {
+    var imageBitmap by remember(mediaUrl) { mutableStateOf<ImageBitmap?>(null) }
+    var loadFailed by remember(mediaUrl) { mutableStateOf(false) }
+
+    LaunchedEffect(mediaUrl) {
+        imageBitmap = null
+        loadFailed = false
+        runCatching {
+            decodeAnnouncementImageBitmap(loadAnnouncementMedia(mediaUrl))
+        }.onSuccess { decodedImage ->
+            if (decodedImage == null) {
+                loadFailed = true
+            } else {
+                imageBitmap = decodedImage
+            }
+        }.onFailure {
+            loadFailed = true
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .aspectRatio(4f / 3f)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Green100)
+            .border(1.dp, Color(0xFFD2DDD8), RoundedCornerShape(8.dp)),
+        contentAlignment = Alignment.Center,
+    ) {
+        when {
+            imageBitmap != null -> Image(
+                bitmap = imageBitmap!!,
+                contentDescription = "Announcement poster",
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+            )
+            loadFailed -> Text(
+                text = "Poster unavailable",
+                color = Muted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+            else -> Text(
+                text = "Loading poster...",
+                color = Muted,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
     }
 }
 

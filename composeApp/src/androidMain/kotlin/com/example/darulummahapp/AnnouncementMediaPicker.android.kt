@@ -2,11 +2,14 @@ package com.example.darulummahapp
 
 import android.content.ContentResolver
 import android.database.Cursor
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.provider.OpenableColumns
 import androidx.activity.ComponentActivity
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -101,4 +104,8 @@ actual suspend fun pickAnnouncementImage(): PickedAnnouncementImage? {
 
 actual fun encodeAnnouncementImageBase64(bytes: ByteArray): String {
     return Base64.getEncoder().encodeToString(bytes)
+}
+
+actual fun decodeAnnouncementImageBitmap(bytes: ByteArray): ImageBitmap? {
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
 }
