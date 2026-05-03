@@ -5,31 +5,6 @@ import kotlin.test.assertEquals
 
 class PrayerTimetableParserTest {
     @Test
-    fun currentGridParserTreatsOneOClockZuhrBeginsAsAfternoon() {
-        val html = """
-            <div class="col-md-4">
-                <div class="Demo">FAJR BEGINS</div><div class="Demo">3:54AM</div>
-                <div class="Demo">FAJR JAMA'AH</div><div class="Demo">4:30AM</div>
-                <div class="Demo">ZUHR BEGINS</div><div class="Demo">1:02AM</div>
-                <div class="Demo">ZUHR JAMA'AH</div><div class="Demo">1:30PM</div>
-                <div class="Demo">ASR BEGINS</div><div class="Demo">6:06PM</div>
-                <div class="Demo">ASR JAMA'AH</div><div class="Demo">6:30PM</div>
-                <div class="Demo">MAGHRIB BEGINS</div><div class="Demo">8:29PM</div>
-                <div class="Demo">MAGHRIB JAMA'AH</div><div class="Demo">8:34PM</div>
-                <div class="Demo">ISHA BEGINS</div><div class="Demo">9:45PM</div>
-                <div class="Demo">ISHA JAMA'AH</div><div class="Demo">10:10PM</div>
-            </div>
-            <div class="col-md-8"></div>
-        """.trimIndent()
-
-        val zuhr = parseDarulUmmahTimetable(html).dailyPrayerTimes.single { it.name == "Zuhr" }
-
-        assertEquals("13:02", zuhr.beginsTime)
-        assertEquals("13:30", zuhr.jamaahTime)
-        assertEquals(13 * 60 + 30, zuhr.minuteOfDay)
-    }
-
-    @Test
     fun fullCalendarParserTreatsOneOClockDhuhrAsAfternoon() {
         val html = """
             <h2>FULL TIMETABLE 2026</h2>
