@@ -1301,7 +1301,7 @@ private fun QiblaCompassCard(state: QiblaCompassState) {
                     ) {
                         QiblaCompassDial(
                             headingDegrees = state.headingDegrees,
-                            turnDegrees = state.turnDegrees,
+                            qiblaBearingDegrees = state.qiblaBearingDegrees,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(290.dp),
@@ -1362,7 +1362,7 @@ private fun QiblaCompassCard(state: QiblaCompassState) {
 @Composable
 private fun QiblaCompassDial(
     headingDegrees: Double?,
-    turnDegrees: Double?,
+    qiblaBearingDegrees: Double?,
     modifier: Modifier = Modifier,
 ) {
     val compassRotation = -(headingDegrees ?: 0.0).toFloat()
@@ -1434,33 +1434,35 @@ private fun QiblaCompassDial(
                     }
                 }
             }
-            if (turnDegrees != null) {
-                rotate(degrees = turnDegrees.toFloat()) {
-                    drawLine(
-                        color = Color.Black.copy(alpha = 0.25f),
-                        start = center.copy(x = center.x + 3.dp.toPx(), y = center.y + 6.dp.toPx()),
-                        end = center.copy(x = center.x + 3.dp.toPx(), y = center.y - radius + 34.dp.toPx()),
-                        strokeWidth = 8.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawLine(
-                        color = Gold,
-                        start = center.copy(y = center.y + 4.dp.toPx()),
-                        end = center.copy(y = center.y - radius + 30.dp.toPx()),
-                        strokeWidth = 7.dp.toPx(),
-                        cap = StrokeCap.Round,
-                    )
-                    drawCircle(
-                        color = Gold,
-                        radius = 8.dp.toPx(),
-                        center = center.copy(y = center.y - radius + 30.dp.toPx()),
-                    )
-                    drawKaabaMarker(
-                        centerX = center.x,
-                        centerY = center.y - radius + 4.dp.toPx(),
-                        width = 26.dp.toPx(),
-                        height = 24.dp.toPx(),
-                    )
+            rotate(degrees = compassRotation) {
+                qiblaBearingDegrees?.let { bearing ->
+                    rotate(degrees = bearing.toFloat()) {
+                        drawLine(
+                            color = Color.Black.copy(alpha = 0.25f),
+                            start = center.copy(x = center.x + 3.dp.toPx(), y = center.y + 6.dp.toPx()),
+                            end = center.copy(x = center.x + 3.dp.toPx(), y = center.y - radius + 34.dp.toPx()),
+                            strokeWidth = 8.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                        drawLine(
+                            color = Gold,
+                            start = center.copy(y = center.y + 4.dp.toPx()),
+                            end = center.copy(y = center.y - radius + 30.dp.toPx()),
+                            strokeWidth = 7.dp.toPx(),
+                            cap = StrokeCap.Round,
+                        )
+                        drawCircle(
+                            color = Gold,
+                            radius = 8.dp.toPx(),
+                            center = center.copy(y = center.y - radius + 30.dp.toPx()),
+                        )
+                        drawKaabaMarker(
+                            centerX = center.x,
+                            centerY = center.y - radius + 4.dp.toPx(),
+                            width = 26.dp.toPx(),
+                            height = 24.dp.toPx(),
+                        )
+                    }
                 }
             }
             drawLine(
