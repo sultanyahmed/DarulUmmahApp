@@ -2574,8 +2574,8 @@ private fun parseCurrentPrayerGrid(html: String): PrayerTimetable? {
 
     val fajrBegins = parseMeridiemTime(pairs["FAJR BEGINS"] ?: return null)
     val fajrJamaah = parseMeridiemTime(pairs["FAJR JAMA'AH"] ?: return null)
-    val zuhrBegins = parseMeridiemTime(pairs["ZUHR BEGINS"] ?: return null)
-    val zuhrJamaah = parseMeridiemTime(pairs["ZUHR JAMA'AH"] ?: return null)
+    val zuhrBegins = normalizeDhuhrParsedTime(parseMeridiemTime(pairs["ZUHR BEGINS"] ?: return null))
+    val zuhrJamaah = normalizeDhuhrParsedTime(parseMeridiemTime(pairs["ZUHR JAMA'AH"] ?: return null))
     val asrBegins = parseMeridiemTime(pairs["ASR BEGINS"] ?: return null)
     val asrJamaah = parseMeridiemTime(pairs["ASR JAMA'AH"] ?: return null)
     val maghribBegins = parseMeridiemTime(pairs["MAGHRIB BEGINS"] ?: return null)
@@ -2621,6 +2621,12 @@ private fun parseMeridiemTime(value: String): ParsedTime {
         displayTime = formatTime(minuteOfDay),
         minuteOfDay = minuteOfDay,
     )
+}
+
+private fun normalizeDhuhrParsedTime(time: ParsedTime): ParsedTime {
+    if (time.minuteOfDay >= 12 * 60) return time
+    val minuteOfDay = time.minuteOfDay + 12 * 60
+    return ParsedTime(formatTime(minuteOfDay), minuteOfDay)
 }
 
 private fun extractCalendarYear(html: String): Int? {
