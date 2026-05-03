@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -580,6 +581,7 @@ private fun BottomNavigationItem(
     TextButton(
         onClick = onClick,
         modifier = modifier.height(82.dp),
+        contentPadding = PaddingValues(0.dp),
     ) {
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
@@ -588,8 +590,8 @@ private fun BottomNavigationItem(
             Box(
                 modifier = if (item.prominent) {
                     Modifier
-                        .size(64.dp)
-                        .shadow(14.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.32f))
+                        .size(52.dp)
+                        .shadow(10.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.32f))
                         .clip(CircleShape)
                         .background(if (selected) Green900 else Green700)
                 } else {
@@ -603,7 +605,7 @@ private fun BottomNavigationItem(
                 BottomNavIcon(
                     icon = item.icon,
                     color = if (item.prominent) Color.White else contentColor,
-                    modifier = Modifier.size(if (item.prominent) 34.dp else 26.dp),
+                    modifier = Modifier.size(if (item.prominent) 30.dp else 26.dp),
                 )
             }
             Text(
