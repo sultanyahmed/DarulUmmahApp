@@ -2433,35 +2433,34 @@ private fun parseCalendarPrayerRow(
     val times = cells
         .drop(1)
         .flatMap { cell -> clockTimeRegex.findAll(cell).map { it.value }.toList() }
-        .map(::normalizeClockTime)
     if (times.size < 6) return null
 
     val prayerTimes = when {
         times.size >= 11 -> CalendarPrayerValues(
-            fajrBegins = times[0],
-            sunrise = times[1],
-            fajrJamaah = times[2],
-            dhuhrBegins = normalizeDhuhrClockTime(times[3]),
-            dhuhrJamaah = normalizeDhuhrClockTime(times[4]),
-            asrBegins = times[5],
-            asrJamaah = times[6],
-            maghribBegins = times[7],
-            maghribJamaah = times[8],
-            ishaBegins = times[9],
-            ishaJamaah = times[10],
+            fajrBegins = normalizeClockTime(times[0], ExpectedClockPeriod.Morning),
+            sunrise = normalizeClockTime(times[1], ExpectedClockPeriod.Morning),
+            fajrJamaah = normalizeClockTime(times[2], ExpectedClockPeriod.Morning),
+            dhuhrBegins = normalizeClockTime(times[3], ExpectedClockPeriod.Afternoon),
+            dhuhrJamaah = normalizeClockTime(times[4], ExpectedClockPeriod.Afternoon),
+            asrBegins = normalizeClockTime(times[5], ExpectedClockPeriod.Afternoon),
+            asrJamaah = normalizeClockTime(times[6], ExpectedClockPeriod.Afternoon),
+            maghribBegins = normalizeClockTime(times[7], ExpectedClockPeriod.Afternoon),
+            maghribJamaah = normalizeClockTime(times[8], ExpectedClockPeriod.Afternoon),
+            ishaBegins = normalizeClockTime(times[9], ExpectedClockPeriod.Afternoon),
+            ishaJamaah = normalizeClockTime(times[10], ExpectedClockPeriod.Afternoon),
         )
         else -> CalendarPrayerValues(
-            fajrBegins = times[0],
-            fajrJamaah = times[0],
-            sunrise = times[1],
-            dhuhrBegins = normalizeDhuhrClockTime(times[2]),
-            dhuhrJamaah = normalizeDhuhrClockTime(times[2]),
-            asrBegins = times[3],
-            asrJamaah = times[3],
-            maghribBegins = times[4],
-            maghribJamaah = times[4],
-            ishaBegins = times[5],
-            ishaJamaah = times[5],
+            fajrBegins = normalizeClockTime(times[0], ExpectedClockPeriod.Morning),
+            fajrJamaah = normalizeClockTime(times[0], ExpectedClockPeriod.Morning),
+            sunrise = normalizeClockTime(times[1], ExpectedClockPeriod.Morning),
+            dhuhrBegins = normalizeClockTime(times[2], ExpectedClockPeriod.Afternoon),
+            dhuhrJamaah = normalizeClockTime(times[2], ExpectedClockPeriod.Afternoon),
+            asrBegins = normalizeClockTime(times[3], ExpectedClockPeriod.Afternoon),
+            asrJamaah = normalizeClockTime(times[3], ExpectedClockPeriod.Afternoon),
+            maghribBegins = normalizeClockTime(times[4], ExpectedClockPeriod.Afternoon),
+            maghribJamaah = normalizeClockTime(times[4], ExpectedClockPeriod.Afternoon),
+            ishaBegins = normalizeClockTime(times[5], ExpectedClockPeriod.Afternoon),
+            ishaJamaah = normalizeClockTime(times[5], ExpectedClockPeriod.Afternoon),
         )
     }
 
@@ -2505,8 +2504,16 @@ internal fun parseDarulUmmahTimetable(html: String): PrayerTimetable {
     require(timetableBody.isNotBlank()) { "Darul Ummah timetable body was not found" }
 
     val rows = Regex("<tr[\\s\\S]*?</tr>").findAll(timetableBody).map { it.value }.toList()
-    val beginsTimes = parseTimetableRow(rows.firstOrNull { it.contains("BEGINS") })
-    val jamaahTimes = parseTimetableRow(rows.firstOrNull { it.contains("JAMA") })
+    val rowPeriods = listOf(
+        ExpectedClockPeriod.Morning,
+        ExpectedClockPeriod.Afternoon,
+        ExpectedClockPeriod.Afternoon,
+        ExpectedClockPeriod.Afternoon,
+        ExpectedClockPeriod.Afternoon,
+        ExpectedClockPeriod.Afternoon,
+    )
+    val beginsTimes = parseTimetableRow(rows.firstOrNull { it.contains("BEGINS") }, rowPeriods)
+    val jamaahTimes = parseTimetableRow(rows.firstOrNull { it.contains("JAMA") }, rowPeriods)
     require(beginsTimes.size >= 6 && jamaahTimes.size >= 6) {
         "Darul Ummah timetable rows were incomplete"
     }
@@ -2572,16 +2579,16 @@ private fun parseCurrentPrayerGrid(html: String): PrayerTimetable? {
         }
         .toMap()
 
-    val fajrBegins = parseMeridiemTime(pairs["FAJR BEGINS"] ?: return null)
-    val fajrJamaah = parseMeridiemTime(pairs["FAJR JAMA'AH"] ?: return null)
-    val zuhrBegins = parseMeridiemTime(pairs["ZUHR BEGINS"] ?: return null)
-    val zuhrJamaah = parseMeridiemTime(pairs["ZUHR JAMA'AH"] ?: return null)
-    val asrBegins = parseMeridiemTime(pairs["ASR BEGINS"] ?: return null)
-    val asrJamaah = parseMeridiemTime(pairs["ASR JAMA'AH"] ?: return null)
-    val maghribBegins = parseMeridiemTime(pairs["MAGHRIB BEGINS"] ?: return null)
-    val maghribJamaah = parseMeridiemTime(pairs["MAGHRIB JAMA'AH"] ?: return null)
-    val ishaBegins = parseMeridiemTime(pairs["ISHA BEGINS"] ?: return null)
-    val ishaJamaah = parseMeridiemTime(pairs["ISHA JAMA'AH"] ?: return null)
+    val fajrBegins = parseMeridiemTime(pairs["FAJR BEGINS"] ?: return null, ExpectedClockPeriod.Morning)
+    val fajrJamaah = parseMeridiemTime(pairs["FAJR JAMA'AH"] ?: return null, ExpectedClockPeriod.Morning)
+    val zuhrBegins = parseMeridiemTime(pairs["ZUHR BEGINS"] ?: return null, ExpectedClockPeriod.Afternoon)
+    val zuhrJamaah = parseMeridiemTime(pairs["ZUHR JAMA'AH"] ?: return null, ExpectedClockPeriod.Afternoon)
+    val asrBegins = parseMeridiemTime(pairs["ASR BEGINS"] ?: return null, ExpectedClockPeriod.Afternoon)
+    val asrJamaah = parseMeridiemTime(pairs["ASR JAMA'AH"] ?: return null, ExpectedClockPeriod.Afternoon)
+    val maghribBegins = parseMeridiemTime(pairs["MAGHRIB BEGINS"] ?: return null, ExpectedClockPeriod.Afternoon)
+    val maghribJamaah = parseMeridiemTime(pairs["MAGHRIB JAMA'AH"] ?: return null, ExpectedClockPeriod.Afternoon)
+    val ishaBegins = parseMeridiemTime(pairs["ISHA BEGINS"] ?: return null, ExpectedClockPeriod.Afternoon)
+    val ishaJamaah = parseMeridiemTime(pairs["ISHA JAMA'AH"] ?: return null, ExpectedClockPeriod.Afternoon)
 
     return PrayerTimetable(
         dailyPrayerTimes = listOf(
@@ -2600,23 +2607,40 @@ private data class ParsedTime(
     val minuteOfDay: Int,
 )
 
-private fun parseTimetableRow(row: String?): List<ParsedTime> {
+private enum class ExpectedClockPeriod {
+    Morning,
+    Afternoon,
+}
+
+private fun parseTimetableRow(
+    row: String?,
+    expectedPeriods: List<ExpectedClockPeriod?> = emptyList(),
+): List<ParsedTime> {
     require(!row.isNullOrBlank()) { "Darul Ummah timetable row was not found" }
     return Regex("(\\d{1,2}:\\d{2})<span[^>]*>\\s*(AM|PM)\\s*</span>", RegexOption.IGNORE_CASE)
         .findAll(row)
-        .map { match ->
+        .mapIndexed { index, match ->
             val time = match.groupValues[1]
             val period = match.groupValues[2]
-            val minuteOfDay = toMinuteOfDay(time, period)
+            val minuteOfDay = normalizeMinuteOfDay(
+                minuteOfDay = toMinuteOfDay(time, period),
+                expectedPeriod = expectedPeriods.getOrNull(index),
+            )
             ParsedTime(formatTime(minuteOfDay), minuteOfDay)
         }
         .toList()
 }
 
-private fun parseMeridiemTime(value: String): ParsedTime {
+private fun parseMeridiemTime(
+    value: String,
+    expectedPeriod: ExpectedClockPeriod? = null,
+): ParsedTime {
     val match = meridiemTimeRegex.find(value)
         ?: error("Could not parse time: $value")
-    val minuteOfDay = toMinuteOfDay(match.groupValues[1], match.groupValues[2])
+    val minuteOfDay = normalizeMinuteOfDay(
+        minuteOfDay = toMinuteOfDay(match.groupValues[1], match.groupValues[2]),
+        expectedPeriod = expectedPeriod,
+    )
     return ParsedTime(
         displayTime = formatTime(minuteOfDay),
         minuteOfDay = minuteOfDay,
@@ -2718,16 +2742,26 @@ private fun cleanHtmlText(value: String): String {
         .trim()
 }
 
-private fun normalizeClockTime(value: String): String {
+private fun normalizeClockTime(
+    value: String,
+    expectedPeriod: ExpectedClockPeriod? = null,
+): String {
     val parts = value.split(":")
-    return "${parts[0].padStart(2, '0')}:${parts[1]}"
+    val minuteOfDay = normalizeMinuteOfDay(
+        minuteOfDay = parts[0].toInt() * 60 + parts[1].toInt(),
+        expectedPeriod = expectedPeriod,
+    )
+    return formatTime(minuteOfDay)
 }
 
-private fun normalizeDhuhrClockTime(value: String): String {
-    val parts = value.split(":")
-    val hour = parts[0].toInt()
-    if (hour != 1) return value
-    return "13:${parts[1]}"
+private fun normalizeMinuteOfDay(
+    minuteOfDay: Int,
+    expectedPeriod: ExpectedClockPeriod?,
+): Int {
+    return when {
+        expectedPeriod == ExpectedClockPeriod.Afternoon && minuteOfDay < 12 * 60 -> minuteOfDay + 12 * 60
+        else -> minuteOfDay
+    }
 }
 
 private fun toMinuteOfDay(
