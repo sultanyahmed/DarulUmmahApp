@@ -1,6 +1,7 @@
 package com.example.darulummahapp
 
 import io.ktor.client.HttpClient
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
 import io.ktor.client.statement.bodyAsText
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -246,9 +247,7 @@ actual fun openExternalUrl(url: String) {
 
 @OptIn(ExperimentalForeignApi::class)
 actual fun openMapDirections(address: String) {
-    val encodedAddress = address
-        .replace(" ", "+")
-        .replace(",", "%2C")
+    val encodedAddress = address.percentEncodeQueryValue()
     val appleMapsUrl = "http://maps.apple.com/?q=$encodedAddress"
     val googleMapsUrl = "comgooglemaps://?q=$encodedAddress&directionsmode=driving"
     val presentingController = topPresentedViewController()
@@ -318,7 +317,13 @@ actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
     )
 }
 
-private val iosFetchHttpClient = HttpClient()
+private val iosFetchHttpClient = HttpClient {
+    install(HttpTimeout) {
+        connectTimeoutMillis = FETCH_TIMEOUT_MILLIS
+        requestTimeoutMillis = FETCH_TIMEOUT_MILLIS
+        socketTimeoutMillis = FETCH_TIMEOUT_MILLIS
+    }
+}
 
 private suspend fun fetchUrlString(
     urlString: String,
@@ -347,6 +352,22 @@ private fun openUrl(
 private fun canOpenUrl(urlString: String): Boolean {
     val url = NSURL.URLWithString(urlString) ?: return false
     return UIApplication.sharedApplication.canOpenURL(url)
+}
+
+private fun String.percentEncodeQueryValue(): String {
+    val encoded = StringBuilder()
+    encodeToByteArray().forEach { byte ->
+        val value = byte.toInt() and 0xff
+        val char = value.toChar()
+        when {
+            char in 'A'..'Z' || char in 'a'..'z' || char in '0'..'9' || char == '-' || char == '_' || char == '.' || char == '~' -> {
+                encoded.append(char)
+            }
+            char == ' ' -> encoded.append('+')
+            else -> encoded.append('%').append(value.toString(16).uppercase().padStart(2, '0'))
+        }
+    }
+    return encoded.toString()
 }
 
 private fun showUnavailableAlert(message: String) {
@@ -623,6 +644,7 @@ private fun loadScheduledAnnouncementIdentifiers(): List<String> {
 private const val NOTIFICATION_PREFERENCES_SAVED_KEY = "notificationPreferencesSaved"
 private const val SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY = "scheduledAnnouncementIdentifiers"
 private const val AZAAN_SOUND_FILE_NAME = "azaan.caf"
+private const val FETCH_TIMEOUT_MILLIS = 10_000L
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
 private const val CLASS_ALERT_OFFSET_MINUTES = 60
 private const val ANNOUNCEMENT_ALERT_OFFSET_MINUTES = 60
