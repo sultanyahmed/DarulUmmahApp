@@ -224,6 +224,19 @@ actual fun saveNotificationPreferences(preferences: NotificationPreferences) {
     defaults.setBool(preferences.classesAndEvents, "classesAndEvents")
 }
 
+actual fun loadDarkModePreference(): Boolean? {
+    val defaults = NSUserDefaults.standardUserDefaults
+    return if (defaults.objectForKey(DARK_MODE_PREFERENCE_KEY) == null) {
+        null
+    } else {
+        defaults.boolForKey(DARK_MODE_PREFERENCE_KEY)
+    }
+}
+
+actual fun saveDarkModePreference(enabled: Boolean) {
+    NSUserDefaults.standardUserDefaults.setBool(enabled, DARK_MODE_PREFERENCE_KEY)
+}
+
 actual fun openPhoneNumber(phoneNumber: String) {
     openUrl(
         urlString = "tel:${phoneNumber.filter { it.isDigit() || it == '+' }}",
@@ -643,6 +656,7 @@ private fun loadScheduledAnnouncementIdentifiers(): List<String> {
 
 private const val NOTIFICATION_PREFERENCES_SAVED_KEY = "notificationPreferencesSaved"
 private const val SCHEDULED_ANNOUNCEMENT_IDENTIFIERS_KEY = "scheduledAnnouncementIdentifiers"
+private const val DARK_MODE_PREFERENCE_KEY = "darkModeEnabled"
 private const val AZAAN_SOUND_FILE_NAME = "azaan.caf"
 private const val FETCH_TIMEOUT_MILLIS = 10_000L
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)

@@ -171,6 +171,24 @@ actual fun saveNotificationPreferences(preferences: NotificationPreferences) {
         .apply()
 }
 
+actual fun loadDarkModePreference(): Boolean? {
+    val context = AndroidAppContext.applicationContext ?: return null
+    val preferences = context.getSharedPreferences(NOTIFICATION_PREFERENCES_NAME, Context.MODE_PRIVATE)
+    return if (preferences.contains(DARK_MODE_PREFERENCE_KEY)) {
+        preferences.getBoolean(DARK_MODE_PREFERENCE_KEY, false)
+    } else {
+        null
+    }
+}
+
+actual fun saveDarkModePreference(enabled: Boolean) {
+    val context = AndroidAppContext.applicationContext ?: return
+    context.getSharedPreferences(NOTIFICATION_PREFERENCES_NAME, Context.MODE_PRIVATE)
+        .edit()
+        .putBoolean(DARK_MODE_PREFERENCE_KEY, enabled)
+        .apply()
+}
+
 actual fun openPhoneNumber(phoneNumber: String) {
     openIntent(
         Intent(Intent.ACTION_DIAL, Uri.parse("tel:${phoneNumber.filter { it.isDigit() || it == '+' }}")),
@@ -413,6 +431,7 @@ private const val CLASS_NOTIFICATION_REQUEST_CODE = 30_000
 private const val ANNOUNCEMENT_NOTIFICATION_REQUEST_CODE = 40_000
 private const val NOTIFICATION_PREFERENCES_NAME = "darul_ummah_notification_preferences"
 private const val SCHEDULED_ANNOUNCEMENT_CODES_KEY = "scheduled_announcement_codes"
+private const val DARK_MODE_PREFERENCE_KEY = "dark_mode_enabled"
 private val PRAYER_ALERT_OFFSETS = listOf(30, 10)
 private const val CLASS_ALERT_OFFSET_MINUTES = 60
 private const val ANNOUNCEMENT_ALERT_OFFSET_MINUTES = 60

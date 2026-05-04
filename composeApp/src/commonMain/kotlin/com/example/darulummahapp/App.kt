@@ -6,6 +6,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Box
@@ -27,6 +28,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -39,7 +41,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -50,6 +54,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -93,6 +98,53 @@ private val QiblaSurfaceDeep = Color(0xFF0A2524)
 private val QiblaCream = Color(0xFFF7F1DD)
 private val QiblaSand = Color(0xFFE6D6AC)
 private val QiblaBronze = Color(0xFFB69642)
+
+private data class AppColors(
+    val page: Color,
+    val gradient: List<Color>,
+    val header: Color,
+    val card: Color,
+    val cardAlt: Color,
+    val text: Color,
+    val muted: Color,
+    val border: Color,
+    val selected: Color,
+    val nav: Color,
+    val navBorder: Color,
+    val field: Color,
+)
+
+private val LightAppColors = AppColors(
+    page = SiteBlack,
+    gradient = listOf(SiteBlack, Green900, Green700),
+    header = SiteCharcoal,
+    card = Color.White,
+    cardAlt = Color(0xFFFBFDFB),
+    text = Ink,
+    muted = Muted,
+    border = Color(0xFFE2E8E4),
+    selected = Green100,
+    nav = Color.White,
+    navBorder = Color.White.copy(alpha = 0.55f),
+    field = Color.White,
+)
+
+private val DarkAppColors = AppColors(
+    page = Color(0xFF071514),
+    gradient = listOf(Color(0xFF050D0C), Color(0xFF0A2524), Color(0xFF0E4C46)),
+    header = Color(0xFF142321),
+    card = Color(0xFF10201E),
+    cardAlt = Color(0xFF132825),
+    text = Color(0xFFF2F7F4),
+    muted = Color(0xFFA9BBB3),
+    border = Color(0xFF28413D),
+    selected = Color(0xFF173F3A),
+    nav = Color(0xFF0E1D1B),
+    navBorder = Color(0xFF2B4944),
+    field = Color(0xFF0B1917),
+)
+
+private val LocalAppColors = staticCompositionLocalOf { LightAppColors }
 private val announcementTimeOptions = buildList<String> {
     for (hour in 0..23) {
         for (minute in listOf(0, 15, 30, 45)) {
@@ -317,7 +369,31 @@ internal val classSchedule = listOf(
 @Composable
 @Preview
 fun App() {
-    MaterialTheme {
+    val systemDarkMode = isSystemInDarkTheme()
+    var darkModeEnabled by rememberSaveable {
+        mutableStateOf(loadDarkModePreference() ?: systemDarkMode)
+    }
+    val appColors = if (darkModeEnabled) DarkAppColors else LightAppColors
+    val materialColors = if (darkModeEnabled) {
+        darkColorScheme(
+            primary = Green500,
+            secondary = Gold,
+            background = appColors.page,
+            surface = appColors.card,
+            onSurface = appColors.text,
+        )
+    } else {
+        lightColorScheme(
+            primary = Green700,
+            secondary = Gold,
+            background = appColors.page,
+            surface = appColors.card,
+            onSurface = appColors.text,
+        )
+    }
+
+    MaterialTheme(colorScheme = materialColors) {
+        CompositionLocalProvider(LocalAppColors provides appColors) {
         val announcementRepository = remember { AnnouncementRepository() }
         var screen by rememberSaveable { mutableStateOf(AppScreen.Home) }
         var minuteOfDay by remember { mutableIntStateOf(currentMinuteOfDay()) }
@@ -335,6 +411,10 @@ fun App() {
         var announcementSubmitStatus by remember { mutableStateOf<String?>(null) }
         var announcementDeleteStatus by remember { mutableStateOf<String?>(null) }
         var expandedAnnouncementMediaUrl by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(darkModeEnabled) {
+            saveDarkModePreference(darkModeEnabled)
+        }
 
         LaunchedEffect(Unit) {
             while (true) {
@@ -395,14 +475,14 @@ fun App() {
 
         Surface(
             modifier = Modifier.fillMaxSize(),
-            color = Page,
+            color = appColors.page,
         ) {
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.verticalGradient(
-                            colors = listOf(SiteBlack, Green900, Green700),
+                            colors = appColors.gradient,
                         ),
                     ),
             ) {
@@ -447,6 +527,8 @@ fun App() {
                         AppScreen.Donate -> DonateScreen()
                         AppScreen.Qibla -> QiblaCompassScreen()
                         AppScreen.Settings -> SettingsScreen(
+                            darkModeEnabled = darkModeEnabled,
+                            onDarkModeEnabledChanged = { darkModeEnabled = it },
                             notificationPreferences = notificationPreferences,
                             onNotificationPreferencesChanged = { notificationPreferences = it },
                             onFullCalendarClick = {
@@ -491,6 +573,7 @@ fun App() {
                 }
             }
         }
+        }
     }
 }
 
@@ -498,11 +581,12 @@ fun App() {
 private fun Header(
     onSettingsClick: () -> Unit,
 ) {
+    val colors = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(SiteCharcoal)
+            .background(colors.header)
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -546,6 +630,7 @@ private fun BottomNavigationBar(
     onSelected: (AppScreen) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = LocalAppColors.current
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -561,10 +646,10 @@ private fun BottomNavigationBar(
                     ambientColor = Color.Black.copy(alpha = 0.24f),
                 )
                 .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
-                .background(Color.White)
+                .background(colors.nav)
                 .border(
                     width = 1.dp,
-                    color = Color.White.copy(alpha = 0.55f),
+                    color = colors.navBorder,
                     shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
                 )
                 .padding(horizontal = 10.dp, vertical = 4.dp),
@@ -590,8 +675,9 @@ private fun BottomNavigationItem(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val activeColor = Green900
-    val inactiveColor = Muted.copy(alpha = 0.72f)
+    val colors = LocalAppColors.current
+    val activeColor = if (colors == DarkAppColors) Color.White else Green900
+    val inactiveColor = colors.muted.copy(alpha = 0.78f)
     val contentColor = if (selected) activeColor else inactiveColor
     TextButton(
         onClick = onClick,
@@ -613,7 +699,7 @@ private fun BottomNavigationItem(
                     Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(if (selected) Green100 else Color.Transparent)
+                        .background(if (selected) colors.selected else Color.Transparent)
                 },
                 contentAlignment = Alignment.Center,
             ) {
@@ -816,11 +902,12 @@ private fun PrayerTimesList(
     currentPrayer: PrayerTime,
     prayerTimes: List<PrayerTime>,
 ) {
+    val colors = LocalAppColors.current
     InfoCard {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
                 text = "Today's mosque prayer times",
-                color = Ink,
+                color = colors.text,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
             )
@@ -839,8 +926,9 @@ private fun PrayerRow(
     prayer: PrayerTime,
     isCurrent: Boolean,
 ) {
-    val background = if (isCurrent) Green100 else Color.Transparent
-    val border = if (isCurrent) BorderStroke(1.dp, Green700) else BorderStroke(1.dp, Color(0xFFE2E8E4))
+    val colors = LocalAppColors.current
+    val background = if (isCurrent) colors.selected else Color.Transparent
+    val border = if (isCurrent) BorderStroke(1.dp, Green700) else BorderStroke(1.dp, colors.border)
 
     Row(
         modifier = Modifier
@@ -855,13 +943,13 @@ private fun PrayerRow(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = prayer.name,
-                color = Ink,
+                color = colors.text,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "Begins ${prayer.beginsTime}",
-                color = Muted,
+                color = colors.muted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -881,14 +969,14 @@ private fun PrayerRow(
         ) {
             Text(
                 text = "Jama'ah starts at:",
-                color = Muted,
+                color = colors.muted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.End,
             )
             Text(
                 text = prayer.jamaahTime,
-                color = if (isCurrent) Green900 else Ink,
+                color = if (isCurrent && colors != DarkAppColors) Green900 else colors.text,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.End,
@@ -899,6 +987,7 @@ private fun PrayerRow(
 
 @Composable
 private fun YouTubeScreen() {
+    val colors = LocalAppColors.current
     var recentVideos by remember { mutableStateOf<List<YouTubeVideo>>(emptyList()) }
     var recentVideosStatus by remember { mutableStateOf("Loading recent videos...") }
     var selectedVideoId by remember { mutableStateOf<String?>(null) }
@@ -927,13 +1016,13 @@ private fun YouTubeScreen() {
                 SectionTitle("YouTube")
                 Text(
                     text = "Live stream from Darul Ummah TV",
-                    color = Muted,
+                    color = colors.muted,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     text = "The live player shows the channel stream when the mosque is live.",
-                    color = Muted,
+                    color = colors.muted,
                     fontSize = 12.sp,
                 )
                 YouTubeLivePlayer(
@@ -956,7 +1045,7 @@ private fun YouTubeScreen() {
                 SectionTitle("Previous videos")
                 Text(
                     text = recentVideosStatus,
-                    color = if (recentVideos.isEmpty()) Muted else Green700,
+                    color = if (recentVideos.isEmpty()) colors.muted else Green700,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -989,18 +1078,19 @@ private fun YouTubeScreen() {
 
 @Composable
 private fun DonateScreen() {
+    val colors = LocalAppColors.current
     InfoCard {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             SectionTitle("Donate")
             Text(
                 text = "Support Darul Ummah Shadwell with a one-off or regular donation.",
-                color = Muted,
+                color = colors.muted,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
                 text = "The donation page opens in your browser so payments are handled securely by the mosque's online donation provider.",
-                color = Muted,
+                color = colors.muted,
                 fontSize = 12.sp,
             )
             Button(
@@ -1019,8 +1109,9 @@ private fun YouTubeVideoRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
-    val background = if (selected) Green100 else Color.Transparent
-    val border = if (selected) BorderStroke(1.dp, Green700) else BorderStroke(1.dp, Color(0xFFE2E8E4))
+    val colors = LocalAppColors.current
+    val background = if (selected) colors.selected else Color.Transparent
+    val border = if (selected) BorderStroke(1.dp, Green700) else BorderStroke(1.dp, colors.border)
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1038,14 +1129,14 @@ private fun YouTubeVideoRow(
         ) {
             Text(
                 text = video.title,
-                color = Ink,
+                color = colors.text,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
             )
             if (video.publishedDate.isNotBlank()) {
                 Text(
                     text = video.publishedDate,
-                    color = Muted,
+                    color = colors.muted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -1103,14 +1194,15 @@ private fun NotificationRow(
     enabled: Boolean,
     onEnabledChanged: (Boolean) -> Unit,
 ) {
+    val colors = LocalAppColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, color = Ink, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = Muted, fontSize = 13.sp)
+            Text(title, color = colors.text, fontWeight = FontWeight.SemiBold)
+            Text(detail, color = colors.muted, fontSize = 13.sp)
         }
         Switch(
             checked = enabled,
@@ -1153,13 +1245,14 @@ private fun ContactRow(
     actionLabel: String,
     onClick: () -> Unit,
 ) {
+    val colors = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .clickable(onClick = onClick)
-            .background(Color(0xFFF7FAF8))
-            .border(1.dp, Color(0xFFE1E8E3), RoundedCornerShape(10.dp))
+            .background(colors.cardAlt)
+            .border(1.dp, colors.border, RoundedCornerShape(10.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.Top,
@@ -1181,7 +1274,7 @@ private fun ContactRow(
         Text(
             text = value,
             modifier = Modifier.weight(1f).padding(start = 14.dp),
-            color = Ink,
+            color = colors.text,
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.End,
@@ -1194,6 +1287,7 @@ private fun RemoteUpdateCard(
     status: String,
     onRefresh: () -> Unit,
 ) {
+    val colors = LocalAppColors.current
     InfoCard {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -1204,7 +1298,7 @@ private fun RemoteUpdateCard(
                 SectionTitle("Live updates")
                 Text(
                     text = status,
-                    color = Muted,
+                    color = colors.muted,
                     fontSize = 13.sp,
                 )
             }
@@ -1217,6 +1311,8 @@ private fun RemoteUpdateCard(
 
 @Composable
 private fun SettingsScreen(
+    darkModeEnabled: Boolean,
+    onDarkModeEnabledChanged: (Boolean) -> Unit,
     notificationPreferences: NotificationPreferences,
     onNotificationPreferencesChanged: (NotificationPreferences) -> Unit,
     onFullCalendarClick: () -> Unit,
@@ -1224,6 +1320,10 @@ private fun SettingsScreen(
     onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        AppearanceSettings(
+            darkModeEnabled = darkModeEnabled,
+            onDarkModeEnabledChanged = onDarkModeEnabledChanged,
+        )
         NotificationSettings(
             preferences = notificationPreferences,
             onPreferencesChanged = onNotificationPreferencesChanged,
@@ -1237,12 +1337,48 @@ private fun SettingsScreen(
                 SectionTitle("Prayer calendar")
                 Text(
                     text = "Load the Darul Ummah timetable year currently published on the website. When the site switches to a new year, the app follows it.",
-                    color = Muted,
+                    color = LocalAppColors.current.muted,
                     fontSize = 14.sp,
                 )
                 Button(onClick = onFullCalendarClick) {
                     Text("Full calendar timetable")
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AppearanceSettings(
+    darkModeEnabled: Boolean,
+    onDarkModeEnabledChanged: (Boolean) -> Unit,
+) {
+    val colors = LocalAppColors.current
+    InfoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            SectionTitle("Appearance")
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(colors.cardAlt)
+                    .border(1.dp, colors.border, RoundedCornerShape(8.dp))
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Dark mode", color = colors.text, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "Uses your phone setting on first launch, then remembers this switch.",
+                        color = colors.muted,
+                        fontSize = 13.sp,
+                    )
+                }
+                Switch(
+                    checked = darkModeEnabled,
+                    onCheckedChange = onDarkModeEnabledChanged,
+                )
             }
         }
     }
@@ -1618,6 +1754,7 @@ private fun FullCalendarTimetableScreen(
     onRefresh: () -> Unit,
     onBack: () -> Unit,
 ) {
+    val colors = LocalAppColors.current
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1633,7 +1770,7 @@ private fun FullCalendarTimetableScreen(
                 }
                 Text(
                     text = status,
-                    color = Muted,
+                    color = colors.muted,
                     fontSize = 13.sp,
                 )
                 Button(onClick = onRefresh) {
@@ -1672,7 +1809,7 @@ private fun FullCalendarTimetableScreen(
                 InfoCard {
                     Text(
                         text = "The timetable loaded, but the dates could not be arranged into a calendar.",
-                        color = Muted,
+                        color = colors.muted,
                         fontSize = 14.sp,
                     )
                 }
@@ -1708,6 +1845,7 @@ private fun CalendarMonthSection(
     onPreviousMonth: () -> Unit,
     onNextMonth: () -> Unit,
 ) {
+    val colors = LocalAppColors.current
     val firstDay = days.first().date
     val leadingBlankDays = firstDay.year?.let {
         sundayFirstDayOfWeek(
@@ -1733,7 +1871,7 @@ private fun CalendarMonthSection(
                 }
                 Text(
                     text = firstDay.year?.let { "${firstDay.monthName} $it" } ?: firstDay.monthName,
-                    color = Ink,
+                    color = colors.text,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     textAlign = TextAlign.Center,
@@ -1767,6 +1905,7 @@ private fun CalendarMonthSection(
 
 @Composable
 private fun CalendarWeekdayHeader() {
+    val colors = LocalAppColors.current
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(2.dp),
@@ -1775,7 +1914,7 @@ private fun CalendarWeekdayHeader() {
             Text(
                 text = day,
                 modifier = Modifier.weight(1f),
-                color = Muted,
+                color = colors.muted,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
@@ -1791,6 +1930,7 @@ private fun CalendarDayCell(
     onClick: (CalendarDay) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val colors = LocalAppColors.current
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
@@ -1799,7 +1939,7 @@ private fun CalendarDayCell(
         contentAlignment = Alignment.Center,
     ) {
         if (day == null) return@Box
-        val background = if (selected) Green100 else Color.Transparent
+        val background = if (selected) colors.selected else Color.Transparent
         Text(
             text = day.date.dayOfMonth.toString(),
             modifier = Modifier
@@ -1807,7 +1947,7 @@ private fun CalendarDayCell(
                 .clip(RoundedCornerShape(17.dp))
                 .background(background)
                 .padding(top = 7.dp),
-            color = if (selected) Green900 else Ink,
+            color = if (selected && colors != DarkAppColors) Green900 else colors.text,
             fontSize = 15.sp,
             fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
             textAlign = TextAlign.Center,
@@ -1817,11 +1957,12 @@ private fun CalendarDayCell(
 
 @Composable
 private fun CalendarSelectedDayTimes(day: CalendarDay) {
+    val colors = LocalAppColors.current
     InfoCard {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(
                 text = day.prayerTime.date,
-                color = Ink,
+                color = colors.text,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
             )
@@ -1831,20 +1972,20 @@ private fun CalendarSelectedDayTimes(day: CalendarDay) {
             ) {
                 Text(
                     text = "Prayer",
-                    color = Muted,
+                    color = colors.muted,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Bold,
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(22.dp)) {
                     Text(
                         text = "Starts",
-                        color = Muted,
+                        color = colors.muted,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                     )
                     Text(
                         text = "Jama'ah",
-                        color = Muted,
+                        color = colors.muted,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                     )
@@ -1866,17 +2007,18 @@ private fun CalendarSelectedTimeRow(
     starts: String,
     jamaah: String,
 ) {
+    val colors = LocalAppColors.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .border(1.dp, Color(0xFFE2E8E4), RoundedCornerShape(8.dp))
+            .border(1.dp, colors.border, RoundedCornerShape(8.dp))
             .padding(horizontal = 14.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(
             text = label,
-            color = Ink,
+            color = colors.text,
             fontSize = 15.sp,
             fontWeight = FontWeight.SemiBold,
         )
@@ -1960,6 +2102,7 @@ private fun ClassesAndEventsScreen(
     onAnnouncementMediaClick: (String) -> Unit,
     onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
 ) {
+    val colors = LocalAppColors.current
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -1986,7 +2129,7 @@ private fun ClassesAndEventsScreen(
                 if (announcements.isEmpty()) {
                     Text(
                         text = "No announcements at the moment.",
-                        color = Muted,
+                        color = colors.muted,
                         fontSize = 14.sp,
                     )
                 } else {
@@ -2004,7 +2147,7 @@ private fun ClassesAndEventsScreen(
                 SectionTitle("Custom alerts")
                 Text(
                     text = "Class reminders are set for 1 hour before each listed class.",
-                    color = Muted,
+                    color = colors.muted,
                     fontSize = 14.sp,
                 )
             }
@@ -2019,6 +2162,7 @@ private fun DeleteAnnouncementControls(
     onAnnouncementMediaClick: (String) -> Unit,
     onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
 ) {
+    val colors = LocalAppColors.current
     val scope = rememberCoroutineScope()
     var adminPassword by remember { mutableStateOf("") }
     var pendingDeleteId by remember { mutableStateOf<String?>(null) }
@@ -2026,7 +2170,7 @@ private fun DeleteAnnouncementControls(
 
     Text(
         text = "Enter the admin password below to enable manual deletion before expiry.",
-        color = Muted,
+        color = colors.muted,
         fontSize = 13.sp,
     )
     OutlinedTextField(
@@ -2053,7 +2197,7 @@ private fun DeleteAnnouncementControls(
     deleteStatus?.let {
         Text(
             text = it,
-            color = if (it.contains("deleted", ignoreCase = true)) Green700 else Muted,
+            color = if (it.contains("deleted", ignoreCase = true)) Green700 else colors.muted,
             fontSize = 13.sp,
         )
     }
@@ -2087,6 +2231,7 @@ private fun AddAnnouncementCard(
     submitStatus: String?,
     onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
 ) {
+    val colors = LocalAppColors.current
     val scope = rememberCoroutineScope()
     var title by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
@@ -2106,7 +2251,7 @@ private fun AddAnnouncementCard(
             SectionTitle("Add announcement")
             Text(
                 text = "Enter the admin password to publish a live announcement. Add a start date and time for the 1 hour reminder, then choose when the announcement expires.",
-                color = Muted,
+                color = colors.muted,
                 fontSize = 13.sp,
             )
             OutlinedTextField(
@@ -2371,18 +2516,19 @@ private fun ScheduleRow(
     footer: String? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
+    val colors = LocalAppColors.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(Color(0xFFFBFDFB))
-            .border(1.dp, Color(0xFFE2E8E4), RoundedCornerShape(8.dp))
+            .background(colors.cardAlt)
+            .border(1.dp, colors.border, RoundedCornerShape(8.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         Text(
             text = title,
-            color = Ink,
+            color = colors.text,
             fontSize = 16.sp,
             fontWeight = FontWeight.Bold,
         )
@@ -2394,7 +2540,7 @@ private fun ScheduleRow(
         )
         Text(
             text = detail,
-            color = Muted,
+            color = colors.muted,
             fontSize = 13.sp,
         )
         mediaUrl?.let {
@@ -2446,8 +2592,8 @@ private fun AnnouncementPoster(
             .fillMaxWidth()
             .aspectRatio(4f / 3f)
             .clip(RoundedCornerShape(8.dp))
-            .background(Green100)
-            .border(1.dp, Color(0xFFD2DDD8), RoundedCornerShape(8.dp))
+            .background(LocalAppColors.current.selected)
+            .border(1.dp, LocalAppColors.current.border, RoundedCornerShape(8.dp))
             .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick)),
         contentAlignment = Alignment.Center,
     ) {
@@ -2460,13 +2606,13 @@ private fun AnnouncementPoster(
             )
             loadFailed -> Text(
                 text = "Poster unavailable",
-                color = Muted,
+                color = LocalAppColors.current.muted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
             )
             else -> Text(
                 text = "Loading poster...",
-                color = Muted,
+                color = LocalAppColors.current.muted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -2551,10 +2697,14 @@ private fun AnnouncementImageViewer(
 @Composable
 private fun announcementFieldColors() = OutlinedTextFieldDefaults.colors(
     focusedBorderColor = Green700,
-    unfocusedBorderColor = Color(0xFFD2DDD8),
+    unfocusedBorderColor = LocalAppColors.current.border,
     focusedLabelColor = Green700,
-    unfocusedLabelColor = Muted,
+    unfocusedLabelColor = LocalAppColors.current.muted,
     cursorColor = Green700,
+    focusedTextColor = LocalAppColors.current.text,
+    unfocusedTextColor = LocalAppColors.current.text,
+    focusedContainerColor = LocalAppColors.current.field,
+    unfocusedContainerColor = LocalAppColors.current.field,
 )
 
 private fun buildAnnouncementDraft(
@@ -2650,7 +2800,7 @@ private fun isLeapYear(year: Int): Boolean {
 private fun SectionTitle(text: String) {
     Text(
         text = text,
-        color = Ink,
+        color = LocalAppColors.current.text,
         fontSize = 18.sp,
         fontWeight = FontWeight.Bold,
     )
@@ -2661,7 +2811,7 @@ private fun InfoCard(content: @Composable () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = LocalAppColors.current.card),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
         Box(modifier = Modifier.padding(16.dp)) {

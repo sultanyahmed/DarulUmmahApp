@@ -39,6 +39,10 @@ expect fun loadNotificationPreferences(): NotificationPreferences
 
 expect fun saveNotificationPreferences(preferences: NotificationPreferences)
 
+expect fun loadDarkModePreference(): Boolean?
+
+expect fun saveDarkModePreference(enabled: Boolean)
+
 expect fun openPhoneNumber(phoneNumber: String)
 
 expect fun openEmailAddress(emailAddress: String)
