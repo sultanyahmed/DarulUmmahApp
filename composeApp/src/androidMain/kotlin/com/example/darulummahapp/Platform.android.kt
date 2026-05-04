@@ -109,9 +109,10 @@ actual fun updateNotificationSchedules(
     }
 
     if (preferences.classesAndEvents) {
+        val today = currentDateTimeComponents()
         classSchedule.forEachIndexed { index, session ->
             val day = session.reminderIsoDayOfWeek
-            val minute = session.reminderMinuteOfDay
+            val minute = classSessionReminderMinuteOfDay(session, today)
             if (day != null && minute != null) {
                 scheduleNotification(
                     context = context,
@@ -123,7 +124,7 @@ actual fun updateNotificationSchedules(
                         offsetMinutes = CLASS_ALERT_OFFSET_MINUTES,
                     ),
                     title = "${session.title} in $CLASS_ALERT_OFFSET_MINUTES minutes",
-                    message = "Starts at ${session.time}.",
+                    message = "Starts at ${classSessionDisplayTime(session, today)}.",
                 )
             }
         }

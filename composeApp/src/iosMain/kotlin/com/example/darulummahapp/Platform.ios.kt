@@ -168,9 +168,10 @@ private fun scheduleAuthorizedNotifications(
     }
 
     if (preferences.classesAndEvents) {
+        val today = currentDateTimeComponents()
         classSchedule.forEachIndexed { index, session ->
             val day = session.reminderIsoDayOfWeek
-            val minute = session.reminderMinuteOfDay
+            val minute = classSessionReminderMinuteOfDay(session, today)
             if (day != null && minute != null) {
                 scheduleWeeklyNotification(
                     identifier = classIdentifier(index),
@@ -178,7 +179,7 @@ private fun scheduleAuthorizedNotifications(
                     minuteOfDay = minute,
                     offsetMinutes = CLASS_ALERT_OFFSET_MINUTES,
                     title = "${session.title} in 1 hour",
-                    message = "Starts at ${session.time}.",
+                    message = "Starts at ${classSessionDisplayTime(session, today)}.",
                 )
             }
         }

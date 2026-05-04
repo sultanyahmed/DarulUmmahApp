@@ -213,7 +213,7 @@ private data class YouTubeVideo(
 data class ClassSession(
     val title: String,
     val day: String,
-    val time: String,
+    val bstTime: String,
     val audience: String,
     val reminderIsoDayOfWeek: Int? = null,
     val reminderMinuteOfDay: Int? = null,
@@ -311,7 +311,7 @@ internal val classSchedule = listOf(
     ClassSession(
         title = "Dars of Sahih Al-Bukhari",
         day = "Tuesday Evenings",
-        time = "19:00",
+        bstTime = "19:00",
         audience = "Community",
         reminderIsoDayOfWeek = 2,
         reminderMinuteOfDay = 19 * 60,
@@ -319,7 +319,7 @@ internal val classSchedule = listOf(
     ClassSession(
         title = "Women's Tafsir (Bangla)",
         day = "Wednesday",
-        time = "11:00 - 12:30",
+        bstTime = "11:00 - 12:30",
         audience = "Sisters",
         reminderIsoDayOfWeek = 3,
         reminderMinuteOfDay = 11 * 60,
@@ -327,7 +327,7 @@ internal val classSchedule = listOf(
     ClassSession(
         title = "Islamic Studies",
         day = "Wednesday Evenings",
-        time = "19:00",
+        bstTime = "19:00",
         audience = "Community",
         reminderIsoDayOfWeek = 3,
         reminderMinuteOfDay = 19 * 60,
@@ -335,7 +335,7 @@ internal val classSchedule = listOf(
     ClassSession(
         title = "Women's Tarteel Class",
         day = "Thursday Evenings",
-        time = "19:00",
+        bstTime = "19:00",
         audience = "Sisters",
         reminderIsoDayOfWeek = 4,
         reminderMinuteOfDay = 19 * 60,
@@ -343,7 +343,7 @@ internal val classSchedule = listOf(
     ClassSession(
         title = "Hadeeth Class",
         day = "Thursday Evenings",
-        time = "19:00",
+        bstTime = "19:00",
         audience = "Community",
         reminderIsoDayOfWeek = 4,
         reminderMinuteOfDay = 19 * 60,
@@ -351,7 +351,7 @@ internal val classSchedule = listOf(
     ClassSession(
         title = "Tarteel Class",
         day = "Friday Evenings",
-        time = "19:00",
+        bstTime = "19:00",
         audience = "Community",
         reminderIsoDayOfWeek = 5,
         reminderMinuteOfDay = 19 * 60,
@@ -359,12 +359,76 @@ internal val classSchedule = listOf(
     ClassSession(
         title = "Bangla Tafseer",
         day = "Sunday Evenings",
-        time = "19:00",
+        bstTime = "19:00",
         audience = "Community",
         reminderIsoDayOfWeek = 7,
         reminderMinuteOfDay = 19 * 60,
     ),
 )
+
+internal fun classSessionDisplayTime(
+    session: ClassSession,
+    date: DateTimeComponents = currentDateTimeComponents(),
+): String {
+    return shiftClassTimeForLondonSeason(session.bstTime, date)
+}
+
+internal fun classSessionReminderMinuteOfDay(
+    session: ClassSession,
+    date: DateTimeComponents = currentDateTimeComponents(),
+): Int? {
+    return session.reminderMinuteOfDay?.let { shiftClassMinuteForLondonSeason(it, date) }
+}
+
+internal fun isBritishSummerTime(date: DateTimeComponents): Boolean {
+    return when (date.month) {
+        in 4..9 -> true
+        in listOf(1, 2, 11, 12) -> false
+        3 -> date.day >= lastSundayOfMonth(date.year, 3)
+        10 -> date.day < lastSundayOfMonth(date.year, 10)
+        else -> false
+    }
+}
+
+private fun shiftClassTimeForLondonSeason(
+    bstTime: String,
+    date: DateTimeComponents,
+): String {
+    if (isBritishSummerTime(date)) return bstTime
+    return Regex("""\b\d{1,2}:\d{2}\b""").replace(bstTime) { match ->
+        minuteOfDayToTime(shiftClassMinuteForLondonSeason(toMinuteOfDay(match.value), date))
+    }
+}
+
+private fun shiftClassMinuteForLondonSeason(
+    bstMinuteOfDay: Int,
+    date: DateTimeComponents,
+): Int {
+    return if (isBritishSummerTime(date)) {
+        bstMinuteOfDay
+    } else {
+        ((bstMinuteOfDay - 60) + 24 * 60) % (24 * 60)
+    }
+}
+
+private fun lastSundayOfMonth(year: Int, month: Int): Int {
+    val lastDay = daysInMonth(year, month)
+    return lastDay - sundayFirstDayOfWeek(year, month, lastDay)
+}
+
+private fun daysInMonth(year: Int, month: Int): Int {
+    return when (month) {
+        4, 6, 9, 11 -> 30
+        2 -> if (isLeapYear(year)) 29 else 28
+        else -> 31
+    }
+}
+
+private fun minuteOfDayToTime(minuteOfDay: Int): String {
+    val hour = minuteOfDay / 60
+    val minute = minuteOfDay % 60
+    return "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
+}
 
 @Composable
 @Preview
@@ -2103,6 +2167,7 @@ private fun ClassesAndEventsScreen(
     onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
 ) {
     val colors = LocalAppColors.current
+    val today = currentDateTimeComponents()
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -2110,7 +2175,7 @@ private fun ClassesAndEventsScreen(
                 classSchedule.forEach { session ->
                     ScheduleRow(
                         title = session.title,
-                        meta = "${session.day} - ${session.time}",
+                        meta = "${session.day} - ${classSessionDisplayTime(session, today)}",
                         detail = session.audience,
                     )
                 }
