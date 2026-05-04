@@ -2072,6 +2072,7 @@ private fun CalendarSelectedTimeRow(
     jamaah: String,
 ) {
     val colors = LocalAppColors.current
+    val timeColor = if (colors == DarkAppColors) Green500 else Green900
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2089,14 +2090,14 @@ private fun CalendarSelectedTimeRow(
         Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
             Text(
                 text = starts,
-                color = Green900,
+                color = timeColor,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.End,
             )
             Text(
                 text = jamaah,
-                color = Green900,
+                color = timeColor,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.End,
