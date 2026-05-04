@@ -334,6 +334,7 @@ fun App() {
         var announcementStatus by remember { mutableStateOf("Connecting live announcements...") }
         var announcementSubmitStatus by remember { mutableStateOf<String?>(null) }
         var announcementDeleteStatus by remember { mutableStateOf<String?>(null) }
+        var expandedAnnouncementMediaUrl by remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(Unit) {
             while (true) {
@@ -428,6 +429,7 @@ fun App() {
                             announcements = announcements,
                             announcementStatus = announcementStatus,
                             deleteStatus = announcementDeleteStatus,
+                            onAnnouncementMediaClick = { expandedAnnouncementMediaUrl = it },
                             onDeleteAnnouncement = { announcement, password ->
                                 announcementDeleteStatus = "Deleting announcement..."
                                 try {
@@ -481,6 +483,12 @@ fun App() {
                     onSelected = { screen = it },
                     modifier = Modifier.align(Alignment.BottomCenter),
                 )
+                expandedAnnouncementMediaUrl?.let { mediaUrl ->
+                    AnnouncementImageViewer(
+                        mediaUrl = mediaUrl,
+                        onBack = { expandedAnnouncementMediaUrl = null },
+                    )
+                }
             }
         }
     }
@@ -541,18 +549,25 @@ private fun BottomNavigationBar(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .safeContentPadding()
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            .padding(top = 10.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(82.dp)
-                .shadow(18.dp, RoundedCornerShape(24.dp), ambientColor = Color.Black.copy(alpha = 0.24f))
-                .clip(RoundedCornerShape(24.dp))
+                .height(92.dp)
+                .shadow(
+                    elevation = 18.dp,
+                    shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+                    ambientColor = Color.Black.copy(alpha = 0.24f),
+                )
+                .clip(RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp))
                 .background(Color.White)
-                .border(1.dp, Color.White.copy(alpha = 0.55f), RoundedCornerShape(24.dp))
-                .padding(horizontal = 10.dp),
+                .border(
+                    width = 1.dp,
+                    color = Color.White.copy(alpha = 0.55f),
+                    shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
+                )
+                .padding(horizontal = 10.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -1942,6 +1957,7 @@ private fun ClassesAndEventsScreen(
     announcements: List<Announcement>,
     announcementStatus: String,
     deleteStatus: String?,
+    onAnnouncementMediaClick: (String) -> Unit,
     onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -1977,6 +1993,7 @@ private fun ClassesAndEventsScreen(
                     DeleteAnnouncementControls(
                         announcements = announcements,
                         deleteStatus = deleteStatus,
+                        onAnnouncementMediaClick = onAnnouncementMediaClick,
                         onDeleteAnnouncement = onDeleteAnnouncement,
                     )
                 }
@@ -1999,6 +2016,7 @@ private fun ClassesAndEventsScreen(
 private fun DeleteAnnouncementControls(
     announcements: List<Announcement>,
     deleteStatus: String?,
+    onAnnouncementMediaClick: (String) -> Unit,
     onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -2043,6 +2061,7 @@ private fun DeleteAnnouncementControls(
         AnnouncementRow(
             announcement = announcement,
             isDeleting = pendingDeleteId == announcement.id,
+            onMediaClick = onAnnouncementMediaClick,
             onDelete = {
                 if (adminPassword.isBlank()) {
                     localError = "Enter the admin password to delete an announcement."
@@ -2315,6 +2334,7 @@ private fun AddAnnouncementCard(
 private fun AnnouncementRow(
     announcement: Announcement,
     isDeleting: Boolean = false,
+    onMediaClick: (String) -> Unit,
     onDelete: (() -> Unit)? = null,
 ) {
     val mediaUrl = announcement.mediaUrl?.takeIf { it.isNotBlank() }
@@ -2323,6 +2343,7 @@ private fun AnnouncementRow(
         meta = "Starts ${announcement.startDate} at ${announcement.startTime}",
         detail = announcement.description,
         mediaUrl = mediaUrl,
+        onMediaClick = onMediaClick,
         footer = buildList {
             add("Expires ${announcement.eventDate} at ${announcement.eventTime}")
             if (mediaUrl != null) add("Photo attached")
@@ -2346,6 +2367,7 @@ private fun ScheduleRow(
     meta: String,
     detail: String,
     mediaUrl: String? = null,
+    onMediaClick: ((String) -> Unit)? = null,
     footer: String? = null,
     action: (@Composable () -> Unit)? = null,
 ) {
@@ -2378,6 +2400,7 @@ private fun ScheduleRow(
         mediaUrl?.let {
             AnnouncementPoster(
                 mediaUrl = it,
+                onClick = onMediaClick?.let { click -> { click(it) } },
                 modifier = Modifier.padding(top = 6.dp),
             )
         }
@@ -2396,6 +2419,7 @@ private fun ScheduleRow(
 @Composable
 private fun AnnouncementPoster(
     mediaUrl: String,
+    onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     var imageBitmap by remember(mediaUrl) { mutableStateOf<ImageBitmap?>(null) }
@@ -2423,7 +2447,8 @@ private fun AnnouncementPoster(
             .aspectRatio(4f / 3f)
             .clip(RoundedCornerShape(8.dp))
             .background(Green100)
-            .border(1.dp, Color(0xFFD2DDD8), RoundedCornerShape(8.dp)),
+            .border(1.dp, Color(0xFFD2DDD8), RoundedCornerShape(8.dp))
+            .then(if (onClick == null) Modifier else Modifier.clickable(onClick = onClick)),
         contentAlignment = Alignment.Center,
     ) {
         when {
@@ -2445,6 +2470,80 @@ private fun AnnouncementPoster(
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
             )
+        }
+    }
+}
+
+@Composable
+private fun AnnouncementImageViewer(
+    mediaUrl: String,
+    onBack: () -> Unit,
+) {
+    var imageBitmap by remember(mediaUrl) { mutableStateOf<ImageBitmap?>(null) }
+    var loadFailed by remember(mediaUrl) { mutableStateOf(false) }
+
+    LaunchedEffect(mediaUrl) {
+        imageBitmap = null
+        loadFailed = false
+        runCatching {
+            decodeAnnouncementImageBitmap(loadAnnouncementMedia(mediaUrl))
+        }.onSuccess { decodedImage ->
+            if (decodedImage == null) {
+                loadFailed = true
+            } else {
+                imageBitmap = decodedImage
+            }
+        }.onFailure {
+            loadFailed = true
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.92f))
+            .safeContentPadding()
+            .padding(16.dp),
+    ) {
+        TextButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White.copy(alpha = 0.14f)),
+        ) {
+            Text(
+                text = "Back",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 54.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            when {
+                imageBitmap != null -> Image(
+                    bitmap = imageBitmap!!,
+                    contentDescription = "Expanded announcement poster",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Fit,
+                )
+                loadFailed -> Text(
+                    text = "Poster unavailable",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                else -> Text(
+                    text = "Loading poster...",
+                    color = Color.White,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
         }
     }
 }
