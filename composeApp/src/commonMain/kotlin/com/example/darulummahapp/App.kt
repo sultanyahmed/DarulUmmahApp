@@ -281,7 +281,7 @@ private val bottomNavItems = listOf(
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
 private const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
-private const val DarulUmmahDonationUrl = "https://www.darulummah.org.uk/info/donation"
+private const val DarulUmmahDonationUrl = "https://pay.sumup.com/b2c/Q3XVB1B0"
 
 private val fallbackPrayerTimetable = PrayerTimetable(
     dailyPrayerTimes = listOf(
@@ -1153,7 +1153,7 @@ private fun DonateScreen() {
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "The donation page opens in your browser so payments are handled securely by the mosque's online donation provider.",
+                text = "Complete your donation securely on SumUp's payment page.",
                 color = colors.muted,
                 fontSize = 12.sp,
             )
@@ -1161,7 +1161,7 @@ private fun DonateScreen() {
                 onClick = { openExternalUrl(DarulUmmahDonationUrl) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Text("Donate to the mosque")
+                Text("Donate securely with SumUp")
             }
         }
     }
