@@ -294,6 +294,31 @@ private val fallbackPrayerTimetable = PrayerTimetable(
     jumahTime = JumahTime("13:30", "13:50"),
 )
 
+private fun bundledPrayerTimetableForToday(): PrayerTimetable {
+    val today = currentDateTimeComponents()
+    return darulUmmahPrayerCalendar2026.prayerTimetableForDate(today) ?: fallbackPrayerTimetable
+}
+
+private fun List<CalendarPrayerTime>.prayerTimetableForDate(date: DateTimeComponents): PrayerTimetable? {
+    val prayerTime = firstOrNull { calendarPrayerTime ->
+        val parsed = parseCalendarDate(calendarPrayerTime.date) ?: return@firstOrNull false
+        parsed.year == date.year &&
+            parsed.monthIndex == date.month &&
+            parsed.dayOfMonth == date.day
+    } ?: return null
+
+    return PrayerTimetable(
+        dailyPrayerTimes = listOf(
+            PrayerTime("Fajr", prayerTime.fajrBegins, prayerTime.fajrJamaah, toMinuteOfDay(prayerTime.fajrJamaah)),
+            PrayerTime("Zuhr", prayerTime.dhuhrBegins, prayerTime.dhuhrJamaah, toMinuteOfDay(prayerTime.dhuhrJamaah)),
+            PrayerTime("Asr", prayerTime.asrBegins, prayerTime.asrJamaah, toMinuteOfDay(prayerTime.asrJamaah)),
+            PrayerTime("Maghrib", prayerTime.maghribBegins, prayerTime.maghribJamaah, toMinuteOfDay(prayerTime.maghribJamaah)),
+            PrayerTime("Isha", prayerTime.ishaBegins, prayerTime.ishaJamaah, toMinuteOfDay(prayerTime.ishaJamaah)),
+        ),
+        jumahTime = fallbackPrayerTimetable.jumahTime,
+    )
+}
+
 private val mosqueContact = MosqueContact(
     phone = "0207 790 5166",
     email = "info@darulummah.org.uk",
@@ -463,13 +488,12 @@ fun App() {
         var minuteOfDay by remember { mutableIntStateOf(currentMinuteOfDay()) }
         var secondOfDay by remember { mutableIntStateOf(currentSecondOfDay()) }
         var isoDayOfWeek by remember { mutableIntStateOf(currentIsoDayOfWeek()) }
-        var prayerTimetable by remember { mutableStateOf(fallbackPrayerTimetable) }
+        var prayerTimetable by remember { mutableStateOf(bundledPrayerTimetableForToday()) }
         var notificationPreferences by remember { mutableStateOf(loadNotificationPreferences()) }
-        var updateStatus by remember { mutableStateOf("Loading today's times from darulummah.org.uk") }
+        var updateStatus by remember {
+            mutableStateOf("Using the bundled Darul Ummah $DarulUmmahPrayerCalendarYear calendar.")
+        }
         var refreshKey by remember { mutableIntStateOf(0) }
-        var calendarTimetable by remember { mutableStateOf<List<CalendarPrayerTime>>(emptyList()) }
-        var calendarStatus by remember { mutableStateOf("Open the full calendar timetable to load yearly prayer times.") }
-        var calendarRefreshKey by remember { mutableIntStateOf(0) }
         var announcements by remember { mutableStateOf<List<Announcement>>(emptyList()) }
         var announcementStatus by remember { mutableStateOf("Connecting live announcements...") }
         var announcementSubmitStatus by remember { mutableStateOf<String?>(null) }
@@ -486,38 +510,18 @@ fun App() {
                 minuteOfDay = now.hour * 60 + now.minute
                 secondOfDay = now.hour * 60 * 60 + now.minute * 60 + now.second
                 isoDayOfWeek = currentIsoDayOfWeek()
+                val currentTimetable = darulUmmahPrayerCalendar2026.prayerTimetableForDate(now)
+                if (currentTimetable != null && currentTimetable != prayerTimetable) {
+                    prayerTimetable = currentTimetable
+                }
                 delay(1_000)
             }
         }
 
         LaunchedEffect(refreshKey) {
-            updateStatus = "Loading today's times from darulummah.org.uk"
-            runCatching {
-                parseDarulUmmahTimetable(fetchDarulUmmahPrayerTimetableHtml())
-            }.onSuccess { timetable ->
-                prayerTimetable = timetable
-                updateStatus = "Updated from darulummah.org.uk"
-            }.onFailure {
-                updateStatus = "Could not refresh. Showing the last bundled timetable."
-            }
-        }
-
-        LaunchedEffect(calendarRefreshKey) {
-            if (calendarRefreshKey == 0) return@LaunchedEffect
-            calendarStatus = "Loading full calendar timetable from darulummah.org.uk"
-            runCatching {
-                val html = fetchDarulUmmahPrayerTimetableHtml()
-                publishedCalendarYear(html) to parseFullCalendarTimetable(html)
-            }.onSuccess { (publishedYear, timetable) ->
-                calendarTimetable = timetable
-                calendarStatus = if (timetable.isEmpty()) {
-                    "No timetable rows were found on the Darul Ummah timetable page."
-                } else {
-                    "Updated from darulummah.org.uk for $publishedYear"
-                }
-            }.onFailure {
-                calendarStatus = "Could not load the full calendar timetable."
-            }
+            if (refreshKey == 0) return@LaunchedEffect
+            prayerTimetable = bundledPrayerTimetableForToday()
+            updateStatus = "Reloaded from the bundled Darul Ummah $DarulUmmahPrayerCalendarYear calendar."
         }
 
         LaunchedEffect(notificationPreferences, prayerTimetable, isoDayOfWeek, announcements) {
@@ -568,6 +572,7 @@ fun App() {
                             prayerTimetable = prayerTimetable,
                             updateStatus = updateStatus,
                             onRefresh = { refreshKey++ },
+                            onFullCalendarClick = { screen = AppScreen.FullCalendar },
                         )
                         AppScreen.Classes -> ClassesAndEventsScreen(
                             announcements = announcements,
@@ -597,7 +602,6 @@ fun App() {
                             onNotificationPreferencesChanged = { notificationPreferences = it },
                             onFullCalendarClick = {
                                 screen = AppScreen.FullCalendar
-                                calendarRefreshKey++
                             },
                             submitStatus = announcementSubmitStatus,
                             onSubmitAnnouncement = { draft, password ->
@@ -617,10 +621,9 @@ fun App() {
                             },
                         )
                         AppScreen.FullCalendar -> FullCalendarTimetableScreen(
-                            timetable = calendarTimetable,
-                            status = calendarStatus,
-                            onRefresh = { calendarRefreshKey++ },
-                            onBack = { screen = AppScreen.Settings },
+                            timetable = darulUmmahPrayerCalendar2026,
+                            status = "Showing the Darul Ummah $DarulUmmahPrayerCalendarYear PDF calendar.",
+                            onBack = { screen = AppScreen.Home },
                         )
                     }
                 }
@@ -840,6 +843,7 @@ private fun HomeScreen(
     prayerTimetable: PrayerTimetable,
     updateStatus: String,
     onRefresh: () -> Unit,
+    onFullCalendarClick: () -> Unit,
 ) {
     val currentPrayer = currentPrayer(prayerTimetable.dailyPrayerTimes, minuteOfDay)
     val upcomingPrayer = upcomingPrayer(
@@ -860,11 +864,32 @@ private fun HomeScreen(
             currentPrayer = currentPrayer,
             prayerTimes = prayerTimetable.dailyPrayerTimes,
         )
+        HomeCalendarCard(onFullCalendarClick)
         ContactCard(mosqueContact)
         RemoteUpdateCard(
             status = updateStatus,
             onRefresh = onRefresh,
         )
+    }
+}
+
+@Composable
+private fun HomeCalendarCard(
+    onFullCalendarClick: () -> Unit,
+) {
+    val colors = LocalAppColors.current
+    InfoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            SectionTitle("2026 PDF calendar")
+            Text(
+                text = "The home times and full calendar use the Darul Ummah PDF calendar. Asr begins uses Mithl 2.",
+                color = colors.muted,
+                fontSize = 13.sp,
+            )
+            Button(onClick = onFullCalendarClick) {
+                Text("Full calendar timetable")
+            }
+        }
     }
 }
 
@@ -970,7 +995,7 @@ private fun PrayerTimesList(
     InfoCard {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
-                text = "Today's mosque prayer times",
+                text = "Today's PDF calendar times",
                 color = colors.text,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -1359,7 +1384,7 @@ private fun RemoteUpdateCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                SectionTitle("Live updates")
+                SectionTitle("Calendar source")
                 Text(
                     text = status,
                     color = colors.muted,
@@ -1367,7 +1392,7 @@ private fun RemoteUpdateCard(
                 )
             }
             Button(onClick = onRefresh) {
-                Text("Sync")
+                Text("Reload")
             }
         }
     }
@@ -1400,7 +1425,7 @@ private fun SettingsScreen(
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("Prayer calendar")
                 Text(
-                    text = "Load the Darul Ummah timetable year currently published on the website. When the site switches to a new year, the app follows it.",
+                    text = "View the Darul Ummah $DarulUmmahPrayerCalendarYear PDF calendar used throughout the app.",
                     color = LocalAppColors.current.muted,
                     fontSize = 14.sp,
                 )
@@ -1815,7 +1840,6 @@ private fun turnLabel(turnDegrees: Double): String {
 private fun FullCalendarTimetableScreen(
     timetable: List<CalendarPrayerTime>,
     status: String,
-    onRefresh: () -> Unit,
     onBack: () -> Unit,
 ) {
     val colors = LocalAppColors.current
@@ -1837,9 +1861,6 @@ private fun FullCalendarTimetableScreen(
                     color = colors.muted,
                     fontSize = 13.sp,
                 )
-                Button(onClick = onRefresh) {
-                    Text("Refresh")
-                }
             }
         }
         if (timetable.isNotEmpty()) {

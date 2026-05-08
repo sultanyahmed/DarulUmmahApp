@@ -317,13 +317,6 @@ actual suspend fun fetchDarulUmmahHomeHtml(): String {
     return fetchUrlString("http://www.darulummah.org.uk/", "Could not load Darul Ummah home page")
 }
 
-actual suspend fun fetchDarulUmmahPrayerTimetableHtml(): String {
-    return fetchUrlString(
-        urlString = "http://www.darulummah.org.uk/mosque/prayer-timetable",
-        failureMessage = "Could not load Darul Ummah timetable",
-    )
-}
-
 actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
     return fetchUrlString(
         urlString = "https://www.youtube.com/feeds/videos.xml?channel_id=$DarulUmmahYouTubeChannelId",

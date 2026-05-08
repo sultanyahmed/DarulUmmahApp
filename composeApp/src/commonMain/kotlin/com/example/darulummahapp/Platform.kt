@@ -65,6 +65,4 @@ expect fun YouTubeVideoPlayer(
 
 expect suspend fun fetchDarulUmmahHomeHtml(): String
 
-expect suspend fun fetchDarulUmmahPrayerTimetableHtml(): String
-
 expect suspend fun fetchDarulUmmahYouTubeFeedXml(): String

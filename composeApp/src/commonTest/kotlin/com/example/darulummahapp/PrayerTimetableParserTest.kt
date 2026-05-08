@@ -2,8 +2,25 @@ package com.example.darulummahapp
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class PrayerTimetableParserTest {
+    @Test
+    fun bundledCalendarContainsAll2026Days() {
+        assertEquals(365, darulUmmahPrayerCalendar2026.size)
+        assertEquals("January 1 2026", darulUmmahPrayerCalendar2026.first().date)
+        assertEquals("December 31 2026", darulUmmahPrayerCalendar2026.last().date)
+    }
+
+    @Test
+    fun bundledCalendarUsesMithlTwoForAsrBegins() {
+        val januaryFirst = darulUmmahPrayerCalendar2026.first { it.date == "January 1 2026" }
+
+        assertEquals("14:16", januaryFirst.asrBegins)
+        assertEquals("14:30", januaryFirst.asrJamaah)
+        assertTrue(januaryFirst.asrBegins != "13:46")
+    }
+
     @Test
     fun currentGridParserUsesPrayerPeriodWhenSourceMeridiemIsWrong() {
         val html = """

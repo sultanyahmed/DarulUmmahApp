@@ -219,10 +219,6 @@ actual suspend fun fetchDarulUmmahHomeHtml(): String {
     return fetchUrlString("http://www.darulummah.org.uk/")
 }
 
-actual suspend fun fetchDarulUmmahPrayerTimetableHtml(): String {
-    return fetchUrlString("http://www.darulummah.org.uk/mosque/prayer-timetable")
-}
-
 actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
     return fetchUrlString("https://www.youtube.com/feeds/videos.xml?channel_id=$DarulUmmahYouTubeChannelId")
 }
