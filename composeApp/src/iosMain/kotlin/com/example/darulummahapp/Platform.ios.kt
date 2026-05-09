@@ -324,6 +324,13 @@ actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
     )
 }
 
+actual suspend fun fetchDarulUmmahYouTubeVideosPageHtml(): String {
+    return fetchUrlString(
+        urlString = "$DarulUmmahYouTubeChannelUrl/videos",
+        failureMessage = "Could not load Darul Ummah YouTube videos",
+    )
+}
+
 private val iosFetchHttpClient = HttpClient {
     install(HttpTimeout) {
         connectTimeoutMillis = FETCH_TIMEOUT_MILLIS

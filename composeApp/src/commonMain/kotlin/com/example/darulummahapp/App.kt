@@ -204,7 +204,7 @@ private data class MosqueContact(
     val address: String,
 )
 
-private data class YouTubeVideo(
+internal data class YouTubeVideo(
     val id: String,
     val title: String,
     val publishedDate: String,
@@ -280,7 +280,7 @@ private val bottomNavItems = listOf(
 )
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
-private const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
+internal const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
 private const val DarulUmmahDonationUrl = "https://pay.sumup.com/b2c/Q3XVB1B0"
 
 private val fallbackPrayerTimetable = PrayerTimetable(
@@ -1082,7 +1082,7 @@ private fun YouTubeScreen() {
     LaunchedEffect(refreshKey) {
         recentVideosStatus = "Loading recent videos..."
         runCatching {
-            parseYouTubeRecentVideos(fetchDarulUmmahYouTubeFeedXml()).take(4)
+            fetchDarulUmmahRecentVideos().take(4)
         }.onSuccess { videos ->
             recentVideos = videos
             selectedVideoId = videos.firstOrNull()?.id
@@ -1092,6 +1092,8 @@ private fun YouTubeScreen() {
                 "Latest videos from Darul Ummah TV"
             }
         }.onFailure {
+            recentVideos = emptyList()
+            selectedVideoId = null
             recentVideosStatus = "Could not load recent videos."
         }
     }
@@ -3207,6 +3209,14 @@ private fun extractDisplayedDate(html: String): CalendarDate? {
     return parseCalendarDate(value)
 }
 
+private suspend fun fetchDarulUmmahRecentVideos(): List<YouTubeVideo> {
+    runCatching {
+        parseYouTubeRecentVideos(fetchDarulUmmahYouTubeFeedXml())
+    }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+
+    return parseYouTubeRecentVideosPage(fetchDarulUmmahYouTubeVideosPageHtml())
+}
+
 private fun parseYouTubeRecentVideos(feedXml: String): List<YouTubeVideo> {
     return Regex("<entry>([\\s\\S]*?)</entry>", RegexOption.IGNORE_CASE)
         .findAll(feedXml)
@@ -3226,6 +3236,51 @@ private fun parseYouTubeRecentVideos(feedXml: String): List<YouTubeVideo> {
         .toList()
 }
 
+internal fun parseYouTubeRecentVideosPage(html: String): List<YouTubeVideo> {
+    val videos = mutableListOf<YouTubeVideo>()
+    val seenVideoIds = mutableSetOf<String>()
+    val itemRegex = Regex(
+        "\"richItemRenderer\":\\{([\\s\\S]*?)(?=\"richItemRenderer\":|\"continuationItemRenderer\":|</script>)",
+    )
+
+    itemRegex.findAll(html).forEach { match ->
+        val item = match.groupValues[1]
+        val videoId = Regex("\"videoId\":\"([^\"]+)\"")
+            .find(item)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?: Regex("/vi/([^/]+)/")
+                .find(item)
+                ?.groupValues
+                ?.getOrNull(1)
+            ?: return@forEach
+        if (!seenVideoIds.add(videoId)) return@forEach
+
+        val title = Regex("\"lockupMetadataViewModel\":\\{\"title\":\\{\"content\":\"([^\"]+)\"")
+            .find(item)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.let(::decodeJsonText)
+            ?.let(::decodeXmlText)
+            ?.takeIf { it.isNotBlank() }
+            ?: return@forEach
+        val publishedDate = Regex("\"content\":\"([^\"]+ ago)\"")
+            .find(item)
+            ?.groupValues
+            ?.getOrNull(1)
+            ?.let(::decodeJsonText)
+            .orEmpty()
+
+        videos += YouTubeVideo(
+            id = videoId,
+            title = title,
+            publishedDate = publishedDate,
+        )
+    }
+
+    return videos
+}
+
 private fun xmlTagValue(
     xml: String,
     tagName: String,
@@ -3235,6 +3290,16 @@ private fun xmlTagValue(
         ?.groupValues
         ?.getOrNull(1)
         ?.trim()
+}
+
+private fun decodeJsonText(value: String): String {
+    return value
+        .replace("\\u0026", "&")
+        .replace("\\\"", "\"")
+        .replace("\\/", "/")
+        .replace("\\n", " ")
+        .replace(Regex("\\s+"), " ")
+        .trim()
 }
 
 private fun decodeXmlText(value: String): String {

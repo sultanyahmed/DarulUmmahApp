@@ -223,6 +223,10 @@ actual suspend fun fetchDarulUmmahYouTubeFeedXml(): String {
     return fetchUrlString("https://www.youtube.com/feeds/videos.xml?channel_id=$DarulUmmahYouTubeChannelId")
 }
 
+actual suspend fun fetchDarulUmmahYouTubeVideosPageHtml(): String {
+    return fetchUrlString("$DarulUmmahYouTubeChannelUrl/videos")
+}
+
 private suspend fun fetchUrlString(urlString: String): String = withContext(Dispatchers.IO) {
     val connection = URL(urlString).openConnection() as HttpURLConnection
     try {
