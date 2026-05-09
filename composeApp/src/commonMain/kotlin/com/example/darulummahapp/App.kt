@@ -48,6 +48,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -1160,13 +1161,15 @@ private fun YouTubeScreen() {
                     fontWeight = FontWeight.SemiBold,
                 )
                 selectedVideoId?.let { videoId ->
-                    YouTubeVideoPlayer(
-                        videoId = videoId,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(230.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                    )
+                    key(videoId) {
+                        YouTubeVideoPlayer(
+                            videoId = videoId,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(230.dp)
+                                .clip(RoundedCornerShape(8.dp)),
+                        )
+                    }
                 }
                 recentVideos.forEach { video ->
                     YouTubeVideoRow(
