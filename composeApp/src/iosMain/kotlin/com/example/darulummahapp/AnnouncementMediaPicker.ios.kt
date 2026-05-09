@@ -19,6 +19,7 @@ import platform.UIKit.UIImagePickerControllerDelegateProtocol
 import platform.UIKit.UIImagePickerControllerEditedImage
 import platform.UIKit.UIImagePickerControllerOriginalImage
 import platform.UIKit.UINavigationControllerDelegateProtocol
+import platform.UIKit.UIViewController
 import platform.darwin.NSObject
 import platform.posix.memcpy
 import kotlin.random.Random
@@ -66,7 +67,7 @@ private var activePickerDelegate: IOSAnnouncementImagePickerDelegate? = null
 
 @OptIn(ExperimentalForeignApi::class)
 actual suspend fun pickAnnouncementImage(): PickedAnnouncementImage? {
-    val rootViewController = topPresentedViewController()
+    val rootViewController = announcementPickerTopPresentedViewController()
         ?: error("Could not access the iOS root view controller.")
 
     return suspendCancellableCoroutine { continuation ->
@@ -114,4 +115,12 @@ private fun ByteArray.toNSData(): NSData {
     return usePinned {
         NSData.create(bytes = it.addressOf(0), length = size.toULong())
     }
+}
+
+private fun announcementPickerTopPresentedViewController(): UIViewController? {
+    var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
+    while (controller?.presentedViewController != null) {
+        controller = controller.presentedViewController
+    }
+    return controller
 }

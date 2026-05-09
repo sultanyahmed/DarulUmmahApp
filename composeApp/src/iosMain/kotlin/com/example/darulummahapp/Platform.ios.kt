@@ -265,7 +265,7 @@ actual fun openMapDirections(address: String) {
     val encodedAddress = address.percentEncodeQueryValue()
     val appleMapsUrl = "http://maps.apple.com/?q=$encodedAddress"
     val googleMapsUrl = "comgooglemaps://?q=$encodedAddress&directionsmode=driving"
-    val presentingController = topPresentedViewController()
+    val presentingController = platformTopPresentedViewController()
     if (presentingController == null) {
         openUrl(
             urlString = appleMapsUrl,
@@ -399,7 +399,7 @@ private fun String.percentEncodeQueryValue(): String {
 }
 
 private fun showUnavailableAlert(message: String) {
-    val presentingController = topPresentedViewController() ?: return
+    val presentingController = platformTopPresentedViewController() ?: return
     val alert = UIAlertController.alertControllerWithTitle(
         title = "Unavailable",
         message = message,
@@ -413,6 +413,14 @@ private fun showUnavailableAlert(message: String) {
         ),
     )
     presentingController.presentViewController(alert, animated = true, completion = null)
+}
+
+private fun platformTopPresentedViewController(): UIViewController? {
+    var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
+    while (controller?.presentedViewController != null) {
+        controller = controller.presentedViewController
+    }
+    return controller
 }
 
 private data class ScheduledPrayer(
