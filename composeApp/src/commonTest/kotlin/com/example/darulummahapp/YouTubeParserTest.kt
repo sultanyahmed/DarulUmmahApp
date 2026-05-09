@@ -58,4 +58,18 @@ class YouTubeParserTest {
 
         assertNull(parseYouTubeLiveVideoId(html))
     }
+
+    @Test
+    fun liveParserReadsLiveVideoRenderer() {
+        val html = """
+            <script>
+                "videoRenderer":{
+                    "videoId":"liveRenderer123",
+                    "thumbnailOverlays":[{"thumbnailOverlayTimeStatusRenderer":{"style":"LIVE"}}]
+                }
+            </script>
+        """.trimIndent()
+
+        assertEquals("liveRenderer123", parseYouTubeLiveVideoId(html))
+    }
 }

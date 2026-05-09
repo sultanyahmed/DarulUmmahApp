@@ -1,6 +1,7 @@
 package com.example.darulummahapp
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -45,6 +46,13 @@ private fun YouTubeWebPlayer(
     modifier: Modifier,
 ) {
     var loadedUrl by remember { mutableStateOf<String?>(null) }
+    var player by remember { mutableStateOf<WKWebView?>(null) }
+
+    DisposableEffect(url) {
+        onDispose {
+            player?.stopLoading()
+        }
+    }
 
     UIKitView(
         modifier = modifier,
@@ -56,9 +64,15 @@ private fun YouTubeWebPlayer(
                     mediaTypesRequiringUserActionForPlayback = WKAudiovisualMediaTypeNone
                     preferences.javaScriptCanOpenWindowsAutomatically = true
                 },
-            )
+            ).apply {
+                scrollView.scrollEnabled = false
+                scrollView.bounces = false
+                allowsBackForwardNavigationGestures = false
+                opaque = false
+            }
         },
         update = { webView ->
+            player = webView
             if (loadedUrl != url) {
                 loadedUrl = url
                 webView.loadHTMLString(

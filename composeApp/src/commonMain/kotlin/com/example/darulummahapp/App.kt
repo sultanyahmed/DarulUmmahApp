@@ -1093,7 +1093,9 @@ private fun YouTubeScreen() {
         } else {
             "The live player shows the channel stream when the mosque is live."
         }
+    }
 
+    LaunchedEffect(refreshKey) {
         recentVideosStatus = "Loading recent videos..."
         runCatching {
             fetchDarulUmmahRecentVideos().take(4)
@@ -3230,15 +3232,23 @@ private fun extractDisplayedDate(html: String): CalendarDate? {
 }
 
 private suspend fun fetchDarulUmmahRecentVideos(): List<YouTubeVideo> {
-    runCatching {
-        parseYouTubeRecentVideos(fetchDarulUmmahYouTubeFeedXml())
-    }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+    repeat(2) { attempt ->
+        runCatching {
+            parseYouTubeRecentVideos(fetchDarulUmmahYouTubeFeedXml())
+        }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+
+        runCatching {
+            parseYouTubeRecentVideosPage(fetchDarulUmmahYouTubeVideosPageHtml())
+        }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
+
+        if (attempt == 0) delay(750)
+    }
 
     return parseYouTubeRecentVideosPage(fetchDarulUmmahYouTubeVideosPageHtml())
 }
 
 internal fun parseYouTubeLiveVideoId(html: String): String? {
-    Regex("<link rel=\"canonical\" href=\"https://www\\.youtube\\.com/watch\\?v=([^\"&]+)\"")
+    Regex("<link rel=[\"']canonical[\"'] href=[\"']https://www\\.youtube\\.com/watch\\?v=([^\"'&]+)[\"']")
         .find(html)
         ?.groupValues
         ?.getOrNull(1)
@@ -3251,6 +3261,25 @@ internal fun parseYouTubeLiveVideoId(html: String): String? {
     return liveVideoDetails
         ?.groupValues
         ?.getOrNull(1)
+        ?: liveVideoIdFromRenderer(html)
+}
+
+private fun liveVideoIdFromRenderer(html: String): String? {
+    val rendererRegex = Regex(
+        "\"videoRenderer\":\\{([\\s\\S]*?)(?=\"videoRenderer\":|\"playlistRenderer\":|\"channelRenderer\":|</script>)",
+    )
+    return rendererRegex.findAll(html)
+        .firstNotNullOfOrNull { match ->
+            val renderer = match.groupValues[1]
+            val hasLiveBadge = renderer.contains("\"style\":\"LIVE\"") ||
+                renderer.contains("\"isLiveNow\":true") ||
+                renderer.contains("\"text\":\"LIVE\"")
+            if (!hasLiveBadge) return@firstNotNullOfOrNull null
+            Regex("\"videoId\":\"([^\"]+)\"")
+                .find(renderer)
+                ?.groupValues
+                ?.getOrNull(1)
+        }
 }
 
 private fun parseYouTubeRecentVideos(feedXml: String): List<YouTubeVideo> {
