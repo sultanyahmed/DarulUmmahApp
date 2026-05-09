@@ -281,6 +281,8 @@ private val bottomNavItems = listOf(
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
 internal const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
+internal const val YouTubeFetchUserAgent = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+internal const val YouTubeConsentCookie = "CONSENT=YES+; SOCS=CAAaBgiA8vnPBg"
 private const val DarulUmmahDonationUrl = "https://pay.sumup.com/b2c/Q3XVB1B0"
 
 private val fallbackPrayerTimetable = PrayerTimetable(
@@ -1077,9 +1079,21 @@ private fun YouTubeScreen() {
     var recentVideos by remember { mutableStateOf<List<YouTubeVideo>>(emptyList()) }
     var recentVideosStatus by remember { mutableStateOf("Loading recent videos...") }
     var selectedVideoId by remember { mutableStateOf<String?>(null) }
+    var liveVideoId by remember { mutableStateOf<String?>(null) }
+    var liveStatus by remember { mutableStateOf("Checking live stream...") }
     var refreshKey by remember { mutableIntStateOf(0) }
 
     LaunchedEffect(refreshKey) {
+        liveStatus = "Checking live stream..."
+        liveVideoId = runCatching {
+            parseYouTubeLiveVideoId(fetchDarulUmmahYouTubeLivePageHtml())
+        }.getOrNull()
+        liveStatus = if (liveVideoId != null) {
+            "Darul Ummah TV is live now."
+        } else {
+            "The live player shows the channel stream when the mosque is live."
+        }
+
         recentVideosStatus = "Loading recent videos..."
         runCatching {
             fetchDarulUmmahRecentVideos().take(4)
@@ -1109,16 +1123,22 @@ private fun YouTubeScreen() {
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
-                    text = "The live player shows the channel stream when the mosque is live.",
+                    text = liveStatus,
                     color = colors.muted,
                     fontSize = 12.sp,
                 )
-                YouTubeLivePlayer(
+                val livePlayerModifier = Modifier
+                    .fillMaxWidth()
+                    .height(260.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                liveVideoId?.let { videoId ->
+                    YouTubeVideoPlayer(
+                        videoId = videoId,
+                        modifier = livePlayerModifier,
+                    )
+                } ?: YouTubeLivePlayer(
                     channelId = DarulUmmahYouTubeChannelId,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(260.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                    modifier = livePlayerModifier,
                 )
                 Button(
                     onClick = { openExternalUrl(DarulUmmahYouTubeChannelUrl) },
@@ -3215,6 +3235,22 @@ private suspend fun fetchDarulUmmahRecentVideos(): List<YouTubeVideo> {
     }.getOrNull()?.takeIf { it.isNotEmpty() }?.let { return it }
 
     return parseYouTubeRecentVideosPage(fetchDarulUmmahYouTubeVideosPageHtml())
+}
+
+internal fun parseYouTubeLiveVideoId(html: String): String? {
+    Regex("<link rel=\"canonical\" href=\"https://www\\.youtube\\.com/watch\\?v=([^\"&]+)\"")
+        .find(html)
+        ?.groupValues
+        ?.getOrNull(1)
+        ?.let { return it }
+
+    val liveVideoDetails = Regex(
+        "\"videoDetails\":\\{\"videoId\":\"([^\"]+)\"[\\s\\S]*?\"isLiveContent\":true",
+    ).find(html)
+
+    return liveVideoDetails
+        ?.groupValues
+        ?.getOrNull(1)
 }
 
 private fun parseYouTubeRecentVideos(feedXml: String): List<YouTubeVideo> {

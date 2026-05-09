@@ -3,6 +3,7 @@ package com.example.darulummahapp
 import io.ktor.client.HttpClient
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.request.get
+import io.ktor.client.request.header
 import io.ktor.client.statement.bodyAsText
 import kotlinx.cinterop.ExperimentalForeignApi
 import platform.Foundation.NSCalendar
@@ -331,6 +332,13 @@ actual suspend fun fetchDarulUmmahYouTubeVideosPageHtml(): String {
     )
 }
 
+actual suspend fun fetchDarulUmmahYouTubeLivePageHtml(): String {
+    return fetchUrlString(
+        urlString = "$DarulUmmahYouTubeChannelUrl/live",
+        failureMessage = "Could not load Darul Ummah YouTube live stream",
+    )
+}
+
 private val iosFetchHttpClient = HttpClient {
     install(HttpTimeout) {
         connectTimeoutMillis = FETCH_TIMEOUT_MILLIS
@@ -344,7 +352,13 @@ private suspend fun fetchUrlString(
     failureMessage: String,
 ): String {
     return runCatching {
-        iosFetchHttpClient.get(urlString).bodyAsText()
+        iosFetchHttpClient.get(urlString) {
+            if (urlString.contains("youtube.com")) {
+                header("User-Agent", YouTubeFetchUserAgent)
+                header("Accept-Language", "en-GB,en;q=0.9")
+                header("Cookie", YouTubeConsentCookie)
+            }
+        }.bodyAsText()
     }.getOrElse { error(failureMessage) }
 }
 

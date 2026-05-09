@@ -227,12 +227,21 @@ actual suspend fun fetchDarulUmmahYouTubeVideosPageHtml(): String {
     return fetchUrlString("$DarulUmmahYouTubeChannelUrl/videos")
 }
 
+actual suspend fun fetchDarulUmmahYouTubeLivePageHtml(): String {
+    return fetchUrlString("$DarulUmmahYouTubeChannelUrl/live")
+}
+
 private suspend fun fetchUrlString(urlString: String): String = withContext(Dispatchers.IO) {
     val connection = URL(urlString).openConnection() as HttpURLConnection
     try {
         connection.connectTimeout = 10_000
         connection.readTimeout = 10_000
         connection.requestMethod = "GET"
+        if (urlString.contains("youtube.com")) {
+            connection.setRequestProperty("User-Agent", YouTubeFetchUserAgent)
+            connection.setRequestProperty("Accept-Language", "en-GB,en;q=0.9")
+            connection.setRequestProperty("Cookie", YouTubeConsentCookie)
+        }
         connection.inputStream.bufferedReader().use { it.readText() }
     } finally {
         connection.disconnect()

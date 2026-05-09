@@ -2,6 +2,7 @@ package com.example.darulummahapp
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class YouTubeParserTest {
     @Test
@@ -30,5 +31,31 @@ class YouTubeParserTest {
         assertEquals("Shaykh Waleed al Mehsas | Surah Al-A'raf | Riwaayah Warsh an Nafi", videos[0].title)
         assertEquals("12 days ago", videos[0].publishedDate)
         assertEquals("dlzN-7qZPbc", videos[1].id)
+    }
+
+    @Test
+    fun liveParserReadsWatchCanonicalWhenChannelIsLive() {
+        val html = """
+            <html>
+                <head>
+                    <link rel="canonical" href="https://www.youtube.com/watch?v=live123abc">
+                </head>
+            </html>
+        """.trimIndent()
+
+        assertEquals("live123abc", parseYouTubeLiveVideoId(html))
+    }
+
+    @Test
+    fun liveParserIgnoresChannelCanonicalWhenChannelIsOffline() {
+        val html = """
+            <html>
+                <head>
+                    <link rel="canonical" href="https://www.youtube.com/channel/UCy7hFfaw0R-z8Mpg4zwMJrA">
+                </head>
+            </html>
+        """.trimIndent()
+
+        assertNull(parseYouTubeLiveVideoId(html))
     }
 }
