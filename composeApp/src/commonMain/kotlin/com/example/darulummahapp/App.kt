@@ -600,9 +600,6 @@ fun App() {
                             onDarkModeEnabledChanged = { darkModeEnabled = it },
                             notificationPreferences = notificationPreferences,
                             onNotificationPreferencesChanged = { notificationPreferences = it },
-                            onFullCalendarClick = {
-                                screen = AppScreen.FullCalendar
-                            },
                             submitStatus = announcementSubmitStatus,
                             onSubmitAnnouncement = { draft, password ->
                                 announcementSubmitStatus = "Sending announcement..."
@@ -1404,7 +1401,6 @@ private fun SettingsScreen(
     onDarkModeEnabledChanged: (Boolean) -> Unit,
     notificationPreferences: NotificationPreferences,
     onNotificationPreferencesChanged: (NotificationPreferences) -> Unit,
-    onFullCalendarClick: () -> Unit,
     submitStatus: String?,
     onSubmitAnnouncement: suspend (AnnouncementDraft, String) -> Unit,
 ) {
@@ -1421,19 +1417,6 @@ private fun SettingsScreen(
             submitStatus = submitStatus,
             onSubmitAnnouncement = onSubmitAnnouncement,
         )
-        InfoCard {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                SectionTitle("Prayer calendar")
-                Text(
-                    text = "View the Darul Ummah $DarulUmmahPrayerCalendarYear PDF calendar used throughout the app.",
-                    color = LocalAppColors.current.muted,
-                    fontSize = 14.sp,
-                )
-                Button(onClick = onFullCalendarClick) {
-                    Text("Full calendar timetable")
-                }
-            }
-        }
     }
 }
 
