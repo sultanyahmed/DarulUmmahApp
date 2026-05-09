@@ -281,7 +281,7 @@ private val bottomNavItems = listOf(
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
 internal const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@DarulUmmahMosque"
-internal const val YouTubeFetchUserAgent = "Mozilla/5.0 (Linux; Android 13) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Mobile Safari/537.36"
+internal const val YouTubeFetchUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 internal const val YouTubeConsentCookie = "CONSENT=YES+; SOCS=CAAaBgiA8vnPBg"
 private const val DarulUmmahDonationUrl = "https://pay.sumup.com/b2c/Q3XVB1B0"
 
