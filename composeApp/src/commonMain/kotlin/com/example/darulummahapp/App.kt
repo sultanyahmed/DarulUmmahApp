@@ -992,7 +992,7 @@ private fun PrayerTimesList(
     InfoCard {
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Text(
-                text = "Today's PDF calendar times",
+                text = "Today's mosque prayer times",
                 color = colors.text,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
