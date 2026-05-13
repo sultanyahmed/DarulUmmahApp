@@ -263,7 +263,6 @@ private enum class AppScreen {
     YouTube,
     Donate,
     Qibla,
-    HallHire,
     Settings,
     FullCalendar,
 }
@@ -274,7 +273,6 @@ private enum class BottomNavIcon {
     Donate,
     Live,
     Compass,
-    Hall,
 }
 
 private data class BottomNavItem(
@@ -287,11 +285,10 @@ private data class BottomNavItem(
 private val bottomNavItems = listOf(
     BottomNavItem(AppScreen.Home, "Times", BottomNavIcon.Time),
     BottomNavItem(AppScreen.Classes, "Events", BottomNavIcon.Events),
+    BottomNavItem(AppScreen.Donate, "Donate", BottomNavIcon.Donate, prominent = true),
     BottomNavItem(AppScreen.YouTube, "Live", BottomNavIcon.Live),
     BottomNavItem(AppScreen.Qibla, "Qibla", BottomNavIcon.Compass),
-    BottomNavItem(AppScreen.HallHire, "Hall", BottomNavIcon.Hall),
 )
-private val donateNavItem = BottomNavItem(AppScreen.Donate, "Donate", BottomNavIcon.Donate, prominent = true)
 private val hallHireImages: List<DrawableResource> = listOf(
     Res.drawable.hall_hire_1,
     Res.drawable.hall_hire_2,
@@ -630,6 +627,7 @@ fun App() {
                             announcements = announcements,
                             announcementStatus = announcementStatus,
                             deleteStatus = announcementDeleteStatus,
+                            onHallHireImageClick = { expandedHallImageIndex = it },
                             onAnnouncementMediaClick = { expandedAnnouncementMediaUrl = it },
                             onDeleteAnnouncement = { announcement, password ->
                                 announcementDeleteStatus = "Deleting announcement..."
@@ -647,9 +645,6 @@ fun App() {
                         AppScreen.YouTube -> YouTubeScreen()
                         AppScreen.Donate -> DonateScreen()
                         AppScreen.Qibla -> QiblaCompassScreen()
-                        AppScreen.HallHire -> HallHireScreen(
-                            onImageClick = { expandedHallImageIndex = it },
-                        )
                         AppScreen.Settings -> SettingsScreen(
                             darkModeEnabled = darkModeEnabled,
                             onDarkModeEnabledChanged = { darkModeEnabled = it },
@@ -757,19 +752,15 @@ private fun BottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
-    val leftItems = bottomNavItems.take(3)
-    val rightItems = bottomNavItems.drop(3)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(112.dp)
-            .padding(top = 8.dp),
+            .padding(top = 10.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(86.dp)
-                .align(Alignment.BottomCenter)
+                .height(92.dp)
                 .shadow(
                     elevation = 18.dp,
                     shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
@@ -782,47 +773,19 @@ private fun BottomNavigationBar(
                     color = colors.navBorder,
                     shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
                 )
-                .padding(start = 8.dp, top = 6.dp, end = 8.dp, bottom = 4.dp),
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.weight(1.2f),
-                horizontalArrangement = Arrangement.SpaceEvenly,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                leftItems.forEach { item ->
-                    BottomNavigationItem(
-                        item = item,
-                        selected = selected == item.screen,
-                        onClick = { onSelected(item.screen) },
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            }
-            Spacer(Modifier.width(76.dp))
-            Row(
-                modifier = Modifier.weight(1.25f),
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                rightItems.forEach { item ->
-                    BottomNavigationItem(
-                        item = item,
-                        selected = selected == item.screen,
-                        onClick = { onSelected(item.screen) },
-                        modifier = Modifier.width(58.dp),
-                    )
-                }
+            bottomNavItems.forEach { item ->
+                BottomNavigationItem(
+                    item = item,
+                    selected = selected == item.screen,
+                    onClick = { onSelected(item.screen) },
+                    modifier = Modifier.weight(1f),
+                )
             }
         }
-        BottomNavigationItem(
-            item = donateNavItem,
-            selected = selected == donateNavItem.screen,
-            onClick = { onSelected(donateNavItem.screen) },
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .width(70.dp),
-        )
     }
 }
 
@@ -839,7 +802,7 @@ private fun BottomNavigationItem(
     val contentColor = if (selected) activeColor else inactiveColor
     TextButton(
         onClick = onClick,
-        modifier = modifier.height(if (item.prominent) 100.dp else 72.dp),
+        modifier = modifier.height(82.dp),
         contentPadding = PaddingValues(0.dp),
     ) {
         Column(
@@ -849,18 +812,13 @@ private fun BottomNavigationItem(
             Box(
                 modifier = if (item.prominent) {
                     Modifier
-                        .size(54.dp)
-                        .shadow(14.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.38f))
+                        .size(52.dp)
+                        .shadow(10.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.32f))
                         .clip(CircleShape)
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(Green700, Green900),
-                            ),
-                        )
-                        .border(2.dp, Gold.copy(alpha = 0.72f), CircleShape)
+                        .background(if (selected) Green900 else Green700)
                 } else {
                     Modifier
-                        .size(if (selected) 38.dp else 34.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
                         .background(if (selected) colors.selected else Color.Transparent)
                 },
@@ -869,20 +827,15 @@ private fun BottomNavigationItem(
                 BottomNavIcon(
                     icon = item.icon,
                     color = if (item.prominent) Color.White else contentColor,
-                    modifier = Modifier.size(if (item.prominent) 28.dp else 22.dp),
+                    modifier = Modifier.size(if (item.prominent) 30.dp else 26.dp),
                 )
             }
             Text(
                 text = item.label,
-                color = if (item.prominent) {
-                    if (selected && colors != DarkAppColors) Green900 else activeColor
-                } else {
-                    contentColor
-                },
-                fontSize = if (item.prominent) 12.sp else 10.sp,
-                fontWeight = if (selected || item.prominent) FontWeight.Bold else FontWeight.SemiBold,
+                color = if (item.prominent && selected) Green900 else contentColor,
+                fontSize = 12.sp,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
-                maxLines = 1,
             )
         }
     }
@@ -931,19 +884,6 @@ private fun BottomNavIcon(
                 drawLine(color, Offset(size.width * 0.18f, center.y), Offset(size.width * 0.08f, center.y), 2.dp.toPx(), StrokeCap.Round)
                 drawLine(color, Offset(size.width * 0.82f, center.y), Offset(size.width * 0.92f, center.y), 2.dp.toPx(), StrokeCap.Round)
                 drawLine(color, center, Offset(center.x + size.width * 0.14f, center.y - size.height * 0.22f), 2.4.dp.toPx(), StrokeCap.Round)
-            }
-            BottomNavIcon.Hall -> {
-                val roofTop = Offset(center.x, size.height * 0.16f)
-                val roofLeft = Offset(size.width * 0.18f, size.height * 0.42f)
-                val roofRight = Offset(size.width * 0.82f, size.height * 0.42f)
-                drawLine(color, roofLeft, roofTop, strokeWidth, StrokeCap.Round)
-                drawLine(color, roofTop, roofRight, strokeWidth, StrokeCap.Round)
-                drawLine(color, Offset(size.width * 0.24f, size.height * 0.42f), Offset(size.width * 0.24f, size.height * 0.82f), strokeWidth, StrokeCap.Round)
-                drawLine(color, Offset(size.width * 0.76f, size.height * 0.42f), Offset(size.width * 0.76f, size.height * 0.82f), strokeWidth, StrokeCap.Round)
-                drawLine(color, Offset(size.width * 0.16f, size.height * 0.82f), Offset(size.width * 0.84f, size.height * 0.82f), strokeWidth, StrokeCap.Round)
-                drawLine(color, Offset(size.width * 0.42f, size.height * 0.82f), Offset(size.width * 0.42f, size.height * 0.58f), strokeWidth, StrokeCap.Round)
-                drawLine(color, Offset(size.width * 0.58f, size.height * 0.82f), Offset(size.width * 0.58f, size.height * 0.58f), strokeWidth, StrokeCap.Round)
-                drawLine(color, Offset(size.width * 0.42f, size.height * 0.58f), Offset(size.width * 0.58f, size.height * 0.58f), strokeWidth, StrokeCap.Round)
             }
         }
     }
@@ -2657,6 +2597,7 @@ private fun ClassesAndEventsScreen(
     announcements: List<Announcement>,
     announcementStatus: String,
     deleteStatus: String?,
+    onHallHireImageClick: (Int) -> Unit,
     onAnnouncementMediaClick: (String) -> Unit,
     onDeleteAnnouncement: suspend (Announcement, String) -> Unit,
 ) {
@@ -2675,6 +2616,7 @@ private fun ClassesAndEventsScreen(
                 }
             }
         }
+        HallHireScreen(onImageClick = onHallHireImageClick)
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("Announcements")
