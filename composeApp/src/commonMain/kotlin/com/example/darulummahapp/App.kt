@@ -757,8 +757,8 @@ private fun BottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
-    val leftItems = bottomNavItems.take(2)
-    val rightItems = bottomNavItems.drop(2)
+    val leftItems = bottomNavItems.take(3)
+    val rightItems = bottomNavItems.drop(3)
     Box(
         modifier = modifier
             .fillMaxWidth()
@@ -786,7 +786,7 @@ private fun BottomNavigationBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                modifier = Modifier.weight(0.8f),
+                modifier = Modifier.weight(1.4f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -799,9 +799,9 @@ private fun BottomNavigationBar(
                     )
                 }
             }
-            Spacer(Modifier.width(104.dp))
+            Spacer(Modifier.width(88.dp))
             Row(
-                modifier = Modifier.weight(1.7f),
+                modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
