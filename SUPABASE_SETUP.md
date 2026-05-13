@@ -22,7 +22,8 @@ SUPABASE_ANON_KEY=your_supabase_anon_key
 ### Database
 
 Apply every migration in [supabase/migrations](/Users/sultanyousufahmed/Downloads/DarulUmmahApp/supabase/migrations) in filename order.
-These migrations create the `announcements` table, start/expiry scheduling columns, and the public storage bucket used for attached images.
+These migrations create the `announcements` table, start/expiry scheduling columns, explicit Data API grants, and the public storage bucket used for attached images.
+Any future table created in `public` for use through Supabase client libraries, PostgREST, or GraphQL should include explicit `grant` statements and RLS policies in the same migration.
 
 ### Edge Function
 

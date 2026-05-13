@@ -15,6 +15,14 @@ create table if not exists public.announcements (
     created_at timestamptz not null default timezone('utc', now())
 );
 
+grant select
+on table public.announcements
+to anon, authenticated;
+
+grant select, insert, update, delete
+on table public.announcements
+to service_role;
+
 alter table public.announcements enable row level security;
 
 insert into storage.buckets (id, name, public)
