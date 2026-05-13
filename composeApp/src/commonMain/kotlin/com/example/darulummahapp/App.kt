@@ -802,7 +802,7 @@ private fun BottomNavigationBar(
             Spacer(Modifier.width(76.dp))
             Row(
                 modifier = Modifier.weight(1.25f),
-                horizontalArrangement = Arrangement.SpaceEvenly,
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 rightItems.forEach { item ->
@@ -810,7 +810,7 @@ private fun BottomNavigationBar(
                         item = item,
                         selected = selected == item.screen,
                         onClick = { onSelected(item.screen) },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.width(58.dp),
                     )
                 }
             }
