@@ -2,11 +2,19 @@ package com.example.darulummahapp
 
 import platform.UIKit.UIApplication
 import platform.UIKit.UIViewController
+import platform.UIKit.UIWindow
 
 internal fun activeRootViewController(): UIViewController? {
     val application = UIApplication.sharedApplication
-    val keyWindow = application.keyWindow
-    return keyWindow?.rootViewController
+    return application.keyWindow?.rootViewController
+        ?: application.windows
+            .filterIsInstance<UIWindow>()
+            .firstOrNull { it.isKeyWindow() }
+            ?.rootViewController
+        ?: application.windows
+            .filterIsInstance<UIWindow>()
+            .firstOrNull()
+            ?.rootViewController
 }
 
 internal fun topPresentedViewController(): UIViewController? {

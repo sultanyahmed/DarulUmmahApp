@@ -11,7 +11,6 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import platform.Foundation.NSData
 import platform.Foundation.base64EncodedStringWithOptions
 import platform.Foundation.create
-import platform.UIKit.UIApplication
 import platform.UIKit.UIImage
 import platform.UIKit.UIImageJPEGRepresentation
 import platform.UIKit.UIImagePickerController
@@ -118,9 +117,5 @@ private fun ByteArray.toNSData(): NSData {
 }
 
 private fun announcementPickerTopPresentedViewController(): UIViewController? {
-    var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
-    while (controller?.presentedViewController != null) {
-        controller = controller.presentedViewController
-    }
-    return controller
+    return topPresentedViewController()
 }

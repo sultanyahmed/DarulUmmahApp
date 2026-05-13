@@ -366,7 +366,11 @@ private fun openUrl(
     urlString: String,
     failureMessage: String,
 ) {
-    val url = NSURL.URLWithString(urlString) ?: return
+    val url = NSURL.URLWithString(urlString)
+    if (url == null) {
+        showUnavailableAlert(failureMessage)
+        return
+    }
     UIApplication.sharedApplication.openURL(
         url = url,
         options = emptyMap<Any?, Any>(),
@@ -416,11 +420,7 @@ private fun showUnavailableAlert(message: String) {
 }
 
 private fun platformTopPresentedViewController(): UIViewController? {
-    var controller = UIApplication.sharedApplication.keyWindow?.rootViewController
-    while (controller?.presentedViewController != null) {
-        controller = controller.presentedViewController
-    }
-    return controller
+    return topPresentedViewController()
 }
 
 private data class ScheduledPrayer(
