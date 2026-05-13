@@ -285,6 +285,7 @@ internal const val DarulUmmahYouTubeChannelUrl = "https://www.youtube.com/@Darul
 internal const val YouTubeFetchUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 internal const val YouTubeConsentCookie = "CONSENT=YES+; SOCS=CAAaBgiA8vnPBg"
 private const val DarulUmmahDonationUrl = "https://pay.sumup.com/b2c/Q3XVB1B0"
+private const val PrivacyPolicyUrl = "https://sultanyahmed.github.io/DarulUmmahApp/privacy-policy.html"
 
 private val fallbackPrayerTimetable = PrayerTimetable(
     dailyPrayerTimes = listOf(
@@ -1440,10 +1441,28 @@ private fun SettingsScreen(
             preferences = notificationPreferences,
             onPreferencesChanged = onNotificationPreferencesChanged,
         )
+        PrivacyPolicySettings()
         AddAnnouncementCard(
             submitStatus = submitStatus,
             onSubmitAnnouncement = onSubmitAnnouncement,
         )
+    }
+}
+
+@Composable
+private fun PrivacyPolicySettings() {
+    InfoCard {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionTitle("Privacy")
+            Text(
+                text = "Read how Darul Ummah Shadwell uses app data, location, notifications, and announcement media.",
+                color = LocalAppColors.current.muted,
+                fontSize = 13.sp,
+            )
+            TextButton(onClick = { openExternalUrl(PrivacyPolicyUrl) }) {
+                Text("Open privacy policy")
+            }
+        }
     }
 }
 
