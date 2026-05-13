@@ -298,6 +298,7 @@ internal const val YouTubeFetchUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS
 internal const val YouTubeConsentCookie = "CONSENT=YES+; SOCS=CAAaBgiA8vnPBg"
 private const val DarulUmmahDonationUrl = "https://pay.sumup.com/b2c/Q3XVB1B0"
 private const val PrivacyPolicyUrl = "https://sultanyahmed.github.io/DarulUmmahApp/privacy-policy.html"
+private const val HallHirePhoneNumber = "07886663213"
 
 private val fallbackPrayerTimetable = PrayerTimetable(
     dailyPrayerTimes = listOf(
@@ -1734,12 +1735,30 @@ private fun HallHireScreen(
                 HallHireDetail(label = "Capacity", value = "110 people")
                 HallHireDetail(label = "Suitable for", value = "Birthdays, meetings, conferences, mehndi and more")
                 HallHireDetail(label = "Dates and timings", value = "Call Brother Talha Noor")
-                Text(
-                    text = "07886663213",
-                    color = if (colors == DarkAppColors) Green500 else Green700,
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Black,
-                )
+                TextButton(
+                    onClick = { openPhoneNumber(HallHirePhoneNumber) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(if (colors == DarkAppColors) Green700 else Green100)
+                        .border(1.dp, Green700.copy(alpha = 0.28f), RoundedCornerShape(12.dp)),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            text = "Call Brother Talha Noor",
+                            color = if (colors == DarkAppColors) Color.White else Green900,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text(
+                            text = HallHirePhoneNumber,
+                            color = if (colors == DarkAppColors) Gold else Green700,
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Black,
+                        )
+                    }
+                }
             }
         }
     }
