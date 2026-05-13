@@ -786,7 +786,7 @@ private fun BottomNavigationBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                modifier = Modifier.weight(1.4f),
+                modifier = Modifier.weight(1.2f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -799,9 +799,9 @@ private fun BottomNavigationBar(
                     )
                 }
             }
-            Spacer(Modifier.width(88.dp))
+            Spacer(Modifier.width(76.dp))
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1.25f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
