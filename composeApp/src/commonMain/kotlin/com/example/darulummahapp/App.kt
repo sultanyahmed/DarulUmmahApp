@@ -2616,7 +2616,6 @@ private fun ClassesAndEventsScreen(
                 }
             }
         }
-        HallHireScreen(onImageClick = onHallHireImageClick)
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("Announcements")
@@ -2643,6 +2642,7 @@ private fun ClassesAndEventsScreen(
                 }
             }
         }
+        HallHireScreen(onImageClick = onHallHireImageClick)
         InfoCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionTitle("Custom alerts")
