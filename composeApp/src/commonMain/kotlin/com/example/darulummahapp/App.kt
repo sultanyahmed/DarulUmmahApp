@@ -79,6 +79,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import darulummahapp.composeapp.generated.resources.Res
 import darulummahapp.composeapp.generated.resources.darul_ummah_logo
+import darulummahapp.composeapp.generated.resources.hall_hire_1
+import darulummahapp.composeapp.generated.resources.hall_hire_2
+import darulummahapp.composeapp.generated.resources.hall_hire_3
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.jetbrains.compose.resources.painterResource
@@ -253,6 +256,7 @@ private enum class AppScreen {
     YouTube,
     Donate,
     Qibla,
+    HallHire,
     Settings,
     FullCalendar,
 }
@@ -263,6 +267,7 @@ private enum class BottomNavIcon {
     Donate,
     Live,
     Compass,
+    Hall,
 }
 
 private data class BottomNavItem(
@@ -278,6 +283,7 @@ private val bottomNavItems = listOf(
     BottomNavItem(AppScreen.Donate, "Donate", BottomNavIcon.Donate, prominent = true),
     BottomNavItem(AppScreen.YouTube, "Live", BottomNavIcon.Live),
     BottomNavItem(AppScreen.Qibla, "Qibla", BottomNavIcon.Compass),
+    BottomNavItem(AppScreen.HallHire, "Hall", BottomNavIcon.Hall),
 )
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
@@ -599,6 +605,7 @@ fun App() {
                         AppScreen.YouTube -> YouTubeScreen()
                         AppScreen.Donate -> DonateScreen()
                         AppScreen.Qibla -> QiblaCompassScreen()
+                        AppScreen.HallHire -> HallHireScreen()
                         AppScreen.Settings -> SettingsScreen(
                             darkModeEnabled = darkModeEnabled,
                             onDarkModeEnabledChanged = { darkModeEnabled = it },
@@ -831,6 +838,19 @@ private fun BottomNavIcon(
                 drawLine(color, Offset(size.width * 0.18f, center.y), Offset(size.width * 0.08f, center.y), 2.dp.toPx(), StrokeCap.Round)
                 drawLine(color, Offset(size.width * 0.82f, center.y), Offset(size.width * 0.92f, center.y), 2.dp.toPx(), StrokeCap.Round)
                 drawLine(color, center, Offset(center.x + size.width * 0.14f, center.y - size.height * 0.22f), 2.4.dp.toPx(), StrokeCap.Round)
+            }
+            BottomNavIcon.Hall -> {
+                val roofTop = Offset(center.x, size.height * 0.16f)
+                val roofLeft = Offset(size.width * 0.18f, size.height * 0.42f)
+                val roofRight = Offset(size.width * 0.82f, size.height * 0.42f)
+                drawLine(color, roofLeft, roofTop, strokeWidth, StrokeCap.Round)
+                drawLine(color, roofTop, roofRight, strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.24f, size.height * 0.42f), Offset(size.width * 0.24f, size.height * 0.82f), strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.76f, size.height * 0.42f), Offset(size.width * 0.76f, size.height * 0.82f), strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.16f, size.height * 0.82f), Offset(size.width * 0.84f, size.height * 0.82f), strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.42f, size.height * 0.82f), Offset(size.width * 0.42f, size.height * 0.58f), strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.58f, size.height * 0.82f), Offset(size.width * 0.58f, size.height * 0.58f), strokeWidth, StrokeCap.Round)
+                drawLine(color, Offset(size.width * 0.42f, size.height * 0.58f), Offset(size.width * 0.58f, size.height * 0.58f), strokeWidth, StrokeCap.Round)
             }
         }
     }
@@ -1499,6 +1519,139 @@ private fun AppearanceSettings(
                 )
             }
         }
+    }
+}
+
+@Composable
+private fun HallHireScreen() {
+    val colors = LocalAppColors.current
+    val hallImages = listOf(
+        Res.drawable.hall_hire_1,
+        Res.drawable.hall_hire_2,
+        Res.drawable.hall_hire_3,
+    )
+    var selectedImageIndex by rememberSaveable { mutableIntStateOf(0) }
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = colors.card),
+        border = BorderStroke(1.dp, colors.border),
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Hall Hire",
+                    color = colors.text,
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Black,
+                )
+                Text(
+                    text = "Darul Ummah hall is available to hire with capacity for 110 people.",
+                    color = colors.muted,
+                    fontSize = 15.sp,
+                    lineHeight = 21.sp,
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(4f / 3f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.cardAlt)
+                    .border(1.dp, colors.border, RoundedCornerShape(12.dp)),
+            ) {
+                Image(
+                    painter = painterResource(hallImages[selectedImageIndex]),
+                    contentDescription = "Inside Darul Ummah hall",
+                    modifier = Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                )
+                Text(
+                    text = "${selectedImageIndex + 1} / ${hallImages.size}",
+                    color = Color.White,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(10.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color.Black.copy(alpha = 0.58f))
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                TextButton(
+                    onClick = {
+                        selectedImageIndex = if (selectedImageIndex == 0) {
+                            hallImages.lastIndex
+                        } else {
+                            selectedImageIndex - 1
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Previous", color = Green700, fontWeight = FontWeight.Bold)
+                }
+                TextButton(
+                    onClick = {
+                        selectedImageIndex = if (selectedImageIndex == hallImages.lastIndex) {
+                            0
+                        } else {
+                            selectedImageIndex + 1
+                        }
+                    },
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Next", color = Green700, fontWeight = FontWeight.Bold)
+                }
+            }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(colors.cardAlt)
+                    .border(1.dp, colors.border, RoundedCornerShape(12.dp))
+                    .padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                HallHireDetail(label = "Capacity", value = "110 people")
+                HallHireDetail(label = "Suitable for", value = "Birthdays, meetings, conferences, mehndi and more")
+                HallHireDetail(label = "Dates and timings", value = "Call Brother Talha Noor on 07886663213")
+            }
+        }
+    }
+}
+
+@Composable
+private fun HallHireDetail(
+    label: String,
+    value: String,
+) {
+    val colors = LocalAppColors.current
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(
+            text = label,
+            color = colors.muted,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+        )
+        Text(
+            text = value,
+            color = colors.text,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 21.sp,
+        )
     }
 }
 
