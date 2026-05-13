@@ -84,6 +84,7 @@ import darulummahapp.composeapp.generated.resources.hall_hire_2
 import darulummahapp.composeapp.generated.resources.hall_hire_3
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.jetbrains.compose.resources.DrawableResource
 import org.jetbrains.compose.resources.painterResource
 
 private val SiteBlack = Color(0xFF1F1E1E)
@@ -280,10 +281,15 @@ private data class BottomNavItem(
 private val bottomNavItems = listOf(
     BottomNavItem(AppScreen.Home, "Times", BottomNavIcon.Time),
     BottomNavItem(AppScreen.Classes, "Events", BottomNavIcon.Events),
-    BottomNavItem(AppScreen.Donate, "Donate", BottomNavIcon.Donate, prominent = true),
     BottomNavItem(AppScreen.YouTube, "Live", BottomNavIcon.Live),
     BottomNavItem(AppScreen.Qibla, "Qibla", BottomNavIcon.Compass),
     BottomNavItem(AppScreen.HallHire, "Hall", BottomNavIcon.Hall),
+)
+private val donateNavItem = BottomNavItem(AppScreen.Donate, "Donate", BottomNavIcon.Donate, prominent = true)
+private val hallHireImages: List<DrawableResource> = listOf(
+    Res.drawable.hall_hire_1,
+    Res.drawable.hall_hire_2,
+    Res.drawable.hall_hire_3,
 )
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
@@ -509,6 +515,7 @@ fun App() {
         var announcementSubmitStatus by remember { mutableStateOf<String?>(null) }
         var announcementDeleteStatus by remember { mutableStateOf<String?>(null) }
         var expandedAnnouncementMediaUrl by remember { mutableStateOf<String?>(null) }
+        var expandedHallImageIndex by remember { mutableStateOf<Int?>(null) }
 
         LaunchedEffect(darkModeEnabled) {
             saveDarkModePreference(darkModeEnabled)
@@ -605,7 +612,9 @@ fun App() {
                         AppScreen.YouTube -> YouTubeScreen()
                         AppScreen.Donate -> DonateScreen()
                         AppScreen.Qibla -> QiblaCompassScreen()
-                        AppScreen.HallHire -> HallHireScreen()
+                        AppScreen.HallHire -> HallHireScreen(
+                            onImageClick = { expandedHallImageIndex = it },
+                        )
                         AppScreen.Settings -> SettingsScreen(
                             darkModeEnabled = darkModeEnabled,
                             onDarkModeEnabledChanged = { darkModeEnabled = it },
@@ -644,6 +653,13 @@ fun App() {
                     AnnouncementImageViewer(
                         mediaUrl = mediaUrl,
                         onBack = { expandedAnnouncementMediaUrl = null },
+                    )
+                }
+                expandedHallImageIndex?.let { imageIndex ->
+                    HallHireImageViewer(
+                        selectedImageIndex = imageIndex,
+                        onSelectedImageIndexChange = { expandedHallImageIndex = it },
+                        onBack = { expandedHallImageIndex = null },
                     )
                 }
             }
@@ -706,15 +722,19 @@ private fun BottomNavigationBar(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalAppColors.current
+    val leftItems = bottomNavItems.take(2)
+    val rightItems = bottomNavItems.drop(2)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(top = 10.dp),
+            .height(112.dp)
+            .padding(top = 8.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(92.dp)
+                .height(86.dp)
+                .align(Alignment.BottomCenter)
                 .shadow(
                     elevation = 18.dp,
                     shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
@@ -727,19 +747,47 @@ private fun BottomNavigationBar(
                     color = colors.navBorder,
                     shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp),
                 )
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(start = 8.dp, top = 6.dp, end = 8.dp, bottom = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            bottomNavItems.forEach { item ->
-                BottomNavigationItem(
-                    item = item,
-                    selected = selected == item.screen,
-                    onClick = { onSelected(item.screen) },
-                    modifier = Modifier.weight(1f),
-                )
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                leftItems.forEach { item ->
+                    BottomNavigationItem(
+                        item = item,
+                        selected = selected == item.screen,
+                        onClick = { onSelected(item.screen) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
+            }
+            Spacer(Modifier.width(82.dp))
+            Row(
+                modifier = Modifier.weight(1f),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                rightItems.forEach { item ->
+                    BottomNavigationItem(
+                        item = item,
+                        selected = selected == item.screen,
+                        onClick = { onSelected(item.screen) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
+        BottomNavigationItem(
+            item = donateNavItem,
+            selected = selected == donateNavItem.screen,
+            onClick = { onSelected(donateNavItem.screen) },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .width(82.dp),
+        )
     }
 }
 
@@ -756,7 +804,7 @@ private fun BottomNavigationItem(
     val contentColor = if (selected) activeColor else inactiveColor
     TextButton(
         onClick = onClick,
-        modifier = modifier.height(82.dp),
+        modifier = modifier.height(if (item.prominent) 100.dp else 74.dp),
         contentPadding = PaddingValues(0.dp),
     ) {
         Column(
@@ -766,13 +814,18 @@ private fun BottomNavigationItem(
             Box(
                 modifier = if (item.prominent) {
                     Modifier
-                        .size(52.dp)
-                        .shadow(10.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.32f))
+                        .size(62.dp)
+                        .shadow(14.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.38f))
                         .clip(CircleShape)
-                        .background(if (selected) Green900 else Green700)
+                        .background(
+                            Brush.verticalGradient(
+                                colors = listOf(Green700, Green900),
+                            ),
+                        )
+                        .border(2.dp, Gold.copy(alpha = 0.72f), CircleShape)
                 } else {
                     Modifier
-                        .size(38.dp)
+                        .size(if (selected) 40.dp else 36.dp)
                         .clip(CircleShape)
                         .background(if (selected) colors.selected else Color.Transparent)
                 },
@@ -781,15 +834,20 @@ private fun BottomNavigationItem(
                 BottomNavIcon(
                     icon = item.icon,
                     color = if (item.prominent) Color.White else contentColor,
-                    modifier = Modifier.size(if (item.prominent) 30.dp else 26.dp),
+                    modifier = Modifier.size(if (item.prominent) 32.dp else 24.dp),
                 )
             }
             Text(
                 text = item.label,
-                color = if (item.prominent && selected) Green900 else contentColor,
-                fontSize = 12.sp,
-                fontWeight = if (selected) FontWeight.Bold else FontWeight.SemiBold,
+                color = if (item.prominent) {
+                    if (selected && colors != DarkAppColors) Green900 else activeColor
+                } else {
+                    contentColor
+                },
+                fontSize = if (item.prominent) 12.sp else 11.sp,
+                fontWeight = if (selected || item.prominent) FontWeight.Bold else FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
+                maxLines = 1,
             )
         }
     }
@@ -1523,112 +1581,195 @@ private fun AppearanceSettings(
 }
 
 @Composable
-private fun HallHireScreen() {
+private fun HallHireScreen(
+    onImageClick: (Int) -> Unit,
+) {
     val colors = LocalAppColors.current
-    val hallImages = listOf(
-        Res.drawable.hall_hire_1,
-        Res.drawable.hall_hire_2,
-        Res.drawable.hall_hire_3,
-    )
     var selectedImageIndex by rememberSaveable { mutableIntStateOf(0) }
 
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = colors.card),
-        border = BorderStroke(1.dp, colors.border),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+            border = BorderStroke(1.dp, Color.White.copy(alpha = 0.18f)),
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = "Hall Hire",
-                    color = colors.text,
-                    fontSize = 28.sp,
-                    fontWeight = FontWeight.Black,
-                )
-                Text(
-                    text = "Darul Ummah hall is available to hire with capacity for 110 people.",
-                    color = colors.muted,
-                    fontSize = 15.sp,
-                    lineHeight = 21.sp,
-                )
-            }
-
             Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .aspectRatio(4f / 3f)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.cardAlt)
-                    .border(1.dp, colors.border, RoundedCornerShape(12.dp)),
+                    .background(
+                        Brush.verticalGradient(
+                            colors = listOf(Green900, Green700),
+                        ),
+                    )
+                    .padding(16.dp),
             ) {
-                Image(
-                    painter = painterResource(hallImages[selectedImageIndex]),
-                    contentDescription = "Inside Darul Ummah hall",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-                Text(
-                    text = "${selectedImageIndex + 1} / ${hallImages.size}",
-                    color = Color.White,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier
-                        .align(Alignment.BottomEnd)
-                        .padding(10.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.Black.copy(alpha = 0.58f))
-                        .padding(horizontal = 10.dp, vertical = 6.dp),
-                )
-            }
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                TextButton(
-                    onClick = {
-                        selectedImageIndex = if (selectedImageIndex == 0) {
-                            hallImages.lastIndex
-                        } else {
-                            selectedImageIndex - 1
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Previous", color = Green700, fontWeight = FontWeight.Bold)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Hall Hire",
+                        color = Color.White,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Black,
+                    )
+                    Text(
+                        text = "A flexible community hall for birthdays, meetings, conferences, mehndi and more.",
+                        color = Color.White.copy(alpha = 0.88f),
+                        fontSize = 15.sp,
+                        lineHeight = 21.sp,
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    ) {
+                        HallHireSummaryPill("110", "capacity", Modifier.weight(1f))
+                        HallHireSummaryPill("Call", "for timings", Modifier.weight(1f))
+                    }
                 }
-                TextButton(
-                    onClick = {
-                        selectedImageIndex = if (selectedImageIndex == hallImages.lastIndex) {
-                            0
-                        } else {
-                            selectedImageIndex + 1
-                        }
-                    },
-                    modifier = Modifier.weight(1f),
-                ) {
-                    Text("Next", color = Green700, fontWeight = FontWeight.Bold)
-                }
-            }
-
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(colors.cardAlt)
-                    .border(1.dp, colors.border, RoundedCornerShape(12.dp))
-                    .padding(14.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                HallHireDetail(label = "Capacity", value = "110 people")
-                HallHireDetail(label = "Suitable for", value = "Birthdays, meetings, conferences, mehndi and more")
-                HallHireDetail(label = "Dates and timings", value = "Call Brother Talha Noor on 07886663213")
             }
         }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.card),
+            border = BorderStroke(1.dp, colors.border),
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp),
+            ) {
+                Text(
+                    text = "Inside the hall",
+                    color = colors.text,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(4f / 3f)
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(colors.cardAlt)
+                        .border(1.dp, colors.border, RoundedCornerShape(14.dp))
+                        .clickable { onImageClick(selectedImageIndex) },
+                ) {
+                    Image(
+                        painter = painterResource(hallHireImages[selectedImageIndex]),
+                        contentDescription = "Inside Darul Ummah hall",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop,
+                    )
+                    Text(
+                        text = "Tap to enlarge",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.58f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                    Text(
+                        text = "${selectedImageIndex + 1} / ${hallHireImages.size}",
+                        color = Color.White,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .padding(10.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.Black.copy(alpha = 0.58f))
+                            .padding(horizontal = 10.dp, vertical = 6.dp),
+                    )
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    hallHireImages.forEachIndexed { index, image ->
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1.35f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(colors.cardAlt)
+                                .border(
+                                    width = if (index == selectedImageIndex) 3.dp else 1.dp,
+                                    color = if (index == selectedImageIndex) Green700 else colors.border,
+                                    shape = RoundedCornerShape(10.dp),
+                                )
+                                .clickable { selectedImageIndex = index },
+                        ) {
+                            Image(
+                                painter = painterResource(image),
+                                contentDescription = "Hall photo ${index + 1}",
+                                modifier = Modifier.fillMaxSize(),
+                                contentScale = ContentScale.Crop,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = CardDefaults.cardColors(containerColor = colors.card),
+            border = BorderStroke(1.dp, colors.border),
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                Text(
+                    text = "Booking details",
+                    color = colors.text,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+                HallHireDetail(label = "Capacity", value = "110 people")
+                HallHireDetail(label = "Suitable for", value = "Birthdays, meetings, conferences, mehndi and more")
+                HallHireDetail(label = "Dates and timings", value = "Call Brother Talha Noor")
+                Text(
+                    text = "07886663213",
+                    color = if (colors == DarkAppColors) Green500 else Green700,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.Black,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HallHireSummaryPill(
+    value: String,
+    label: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color.White.copy(alpha = 0.13f))
+            .border(1.dp, Color.White.copy(alpha = 0.18f), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+    ) {
+        Text(
+            text = value,
+            color = Gold,
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Black,
+        )
+        Text(
+            text = label,
+            color = Color.White.copy(alpha = 0.88f),
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+        )
     }
 }
 
@@ -2016,6 +2157,87 @@ private fun turnLabel(turnDegrees: Double): String {
     val displayDegrees = if (normalized > 180.0) 360.0 - normalized else normalized
     val rounded = (displayDegrees + 0.5).toInt()
     return if (normalized > 180.0) "$rounded° left" else "$rounded° right"
+}
+
+@Composable
+private fun HallHireImageViewer(
+    selectedImageIndex: Int,
+    onSelectedImageIndexChange: (Int) -> Unit,
+    onBack: () -> Unit,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.94f))
+            .safeContentPadding()
+            .padding(16.dp),
+    ) {
+        TextButton(
+            onClick = onBack,
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White.copy(alpha = 0.14f)),
+        ) {
+            Text(
+                text = "Back",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+            )
+        }
+        Text(
+            text = "${selectedImageIndex + 1} / ${hallHireImages.size}",
+            color = Color.White,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .clip(RoundedCornerShape(8.dp))
+                .background(Color.White.copy(alpha = 0.14f))
+                .padding(horizontal = 12.dp, vertical = 9.dp),
+        )
+        Image(
+            painter = painterResource(hallHireImages[selectedImageIndex]),
+            contentDescription = "Expanded hall photo",
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = 58.dp, bottom = 78.dp),
+            contentScale = ContentScale.Fit,
+        )
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            TextButton(
+                onClick = {
+                    onSelectedImageIndexChange(
+                        if (selectedImageIndex == 0) hallHireImages.lastIndex else selectedImageIndex - 1,
+                    )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.14f)),
+            ) {
+                Text("Previous", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+            TextButton(
+                onClick = {
+                    onSelectedImageIndexChange(
+                        if (selectedImageIndex == hallHireImages.lastIndex) 0 else selectedImageIndex + 1,
+                    )
+                },
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color.White.copy(alpha = 0.14f)),
+            ) {
+                Text("Next", color = Color.White, fontWeight = FontWeight.Bold)
+            }
+        }
+    }
 }
 
 @Composable
