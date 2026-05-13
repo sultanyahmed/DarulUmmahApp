@@ -251,6 +251,12 @@ private data class CalendarDay(
     val prayerTime: CalendarPrayerTime,
 )
 
+private data class IslamicDate(
+    val day: Int,
+    val monthIndex: Int,
+    val year: Int,
+)
+
 private enum class AppScreen {
     Home,
     Classes,
@@ -290,6 +296,34 @@ private val hallHireImages: List<DrawableResource> = listOf(
     Res.drawable.hall_hire_1,
     Res.drawable.hall_hire_2,
     Res.drawable.hall_hire_3,
+)
+private val gregorianMonthNames = listOf(
+    "January",
+    "February",
+    "March",
+    "April",
+    "May",
+    "June",
+    "July",
+    "August",
+    "September",
+    "October",
+    "November",
+    "December",
+)
+private val islamicMonthNames = listOf(
+    "Muharram",
+    "Safar",
+    "Rabi' al-Awwal",
+    "Rabi' al-Thani",
+    "Jumada al-Awwal",
+    "Jumada al-Thani",
+    "Rajab",
+    "Sha'ban",
+    "Ramadan",
+    "Shawwal",
+    "Dhu al-Qadah",
+    "Dhu al-Hijjah",
 )
 
 internal const val DarulUmmahYouTubeChannelId = "UCy7hFfaw0R-z8Mpg4zwMJrA"
@@ -752,7 +786,7 @@ private fun BottomNavigationBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(0.8f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -765,9 +799,9 @@ private fun BottomNavigationBar(
                     )
                 }
             }
-            Spacer(Modifier.width(82.dp))
+            Spacer(Modifier.width(64.dp))
             Row(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1.45f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -787,7 +821,7 @@ private fun BottomNavigationBar(
             onClick = { onSelected(donateNavItem.screen) },
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .width(82.dp),
+                .width(76.dp),
         )
     }
 }
@@ -805,7 +839,7 @@ private fun BottomNavigationItem(
     val contentColor = if (selected) activeColor else inactiveColor
     TextButton(
         onClick = onClick,
-        modifier = modifier.height(if (item.prominent) 100.dp else 74.dp),
+        modifier = modifier.height(if (item.prominent) 100.dp else 72.dp),
         contentPadding = PaddingValues(0.dp),
     ) {
         Column(
@@ -815,7 +849,7 @@ private fun BottomNavigationItem(
             Box(
                 modifier = if (item.prominent) {
                     Modifier
-                        .size(62.dp)
+                        .size(58.dp)
                         .shadow(14.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.38f))
                         .clip(CircleShape)
                         .background(
@@ -826,7 +860,7 @@ private fun BottomNavigationItem(
                         .border(2.dp, Gold.copy(alpha = 0.72f), CircleShape)
                 } else {
                     Modifier
-                        .size(if (selected) 40.dp else 36.dp)
+                        .size(if (selected) 38.dp else 34.dp)
                         .clip(CircleShape)
                         .background(if (selected) colors.selected else Color.Transparent)
                 },
@@ -835,7 +869,7 @@ private fun BottomNavigationItem(
                 BottomNavIcon(
                     icon = item.icon,
                     color = if (item.prominent) Color.White else contentColor,
-                    modifier = Modifier.size(if (item.prominent) 32.dp else 24.dp),
+                    modifier = Modifier.size(if (item.prominent) 30.dp else 22.dp),
                 )
             }
             Text(
@@ -845,7 +879,7 @@ private fun BottomNavigationItem(
                 } else {
                     contentColor
                 },
-                fontSize = if (item.prominent) 12.sp else 11.sp,
+                fontSize = if (item.prominent) 12.sp else 10.sp,
                 fontWeight = if (selected || item.prominent) FontWeight.Bold else FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
@@ -979,6 +1013,7 @@ private fun CountdownCard(
     upcomingPrayer: UpcomingPrayer,
     remainingSeconds: Int,
 ) {
+    val today = currentDateTimeComponents()
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(8.dp),
@@ -1001,6 +1036,20 @@ private fun CountdownCard(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.SemiBold,
             )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = formatGregorianDate(today),
+                    color = Color.White.copy(alpha = 0.9f),
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    text = formatIslamicDate(today),
+                    color = Green100,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
             Text(
                 text = upcomingPrayer.name,
                 color = Color.White,
@@ -3305,6 +3354,52 @@ private fun isLeapYear(year: Int): Boolean {
     return year % 4 == 0 && (year % 100 != 0 || year % 400 == 0)
 }
 
+private fun formatGregorianDate(date: DateTimeComponents): String {
+    val monthName = gregorianMonthNames.getOrElse(date.month - 1) { date.month.toString() }
+    return "$monthName ${date.day}, ${date.year}"
+}
+
+private fun formatIslamicDate(date: DateTimeComponents): String {
+    val islamicDate = date.toIslamicDate()
+    val monthName = islamicMonthNames.getOrElse(islamicDate.monthIndex - 1) {
+        islamicDate.monthIndex.toString()
+    }
+    return "${islamicDate.day} $monthName ${islamicDate.year} AH"
+}
+
+private fun DateTimeComponents.toIslamicDate(): IslamicDate {
+    var remainingDays = gregorianJulianDay(year, month, day) - 1_948_440L + 10_632L
+    val cycle = (remainingDays - 1L) / 10_631L
+    remainingDays = remainingDays - 10_631L * cycle + 354L
+    val correction = ((10_985L - remainingDays) / 5_316L) * ((50L * remainingDays) / 17_719L) +
+        (remainingDays / 5_670L) * ((43L * remainingDays) / 15_238L)
+    remainingDays = remainingDays - ((30L - correction) / 15L) * ((17_719L * correction) / 50L) -
+        (correction / 16L) * ((15_238L * correction) / 43L) + 29L
+    val islamicMonth = (24L * remainingDays) / 709L
+    val islamicDay = remainingDays - (709L * islamicMonth) / 24L
+    val islamicYear = 30L * cycle + correction - 30L
+    return IslamicDate(
+        day = islamicDay.toInt(),
+        monthIndex = islamicMonth.toInt(),
+        year = islamicYear.toInt(),
+    )
+}
+
+private fun gregorianJulianDay(year: Int, month: Int, day: Int): Long {
+    val monthOffset = (14 - month) / 12
+    val adjustedYear = year + 4_800 - monthOffset
+    val adjustedMonth = month + 12 * monthOffset - 3
+    val adjustedYearLong = adjustedYear.toLong()
+    return (
+        day +
+            (153L * adjustedMonth + 2L) / 5L +
+            365L * adjustedYearLong +
+            adjustedYearLong / 4L -
+            adjustedYearLong / 100L +
+            adjustedYearLong / 400L -
+            32_045L
+        )
+}
 
 @Composable
 private fun SectionTitle(text: String) {
