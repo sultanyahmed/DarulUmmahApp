@@ -799,9 +799,9 @@ private fun BottomNavigationBar(
                     )
                 }
             }
-            Spacer(Modifier.width(64.dp))
+            Spacer(Modifier.width(104.dp))
             Row(
-                modifier = Modifier.weight(1.45f),
+                modifier = Modifier.weight(1.7f),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
@@ -821,7 +821,7 @@ private fun BottomNavigationBar(
             onClick = { onSelected(donateNavItem.screen) },
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .width(76.dp),
+                .width(70.dp),
         )
     }
 }
@@ -849,7 +849,7 @@ private fun BottomNavigationItem(
             Box(
                 modifier = if (item.prominent) {
                     Modifier
-                        .size(58.dp)
+                        .size(54.dp)
                         .shadow(14.dp, CircleShape, ambientColor = Green900.copy(alpha = 0.38f))
                         .clip(CircleShape)
                         .background(
@@ -869,7 +869,7 @@ private fun BottomNavigationItem(
                 BottomNavIcon(
                     icon = item.icon,
                     color = if (item.prominent) Color.White else contentColor,
-                    modifier = Modifier.size(if (item.prominent) 30.dp else 22.dp),
+                    modifier = Modifier.size(if (item.prominent) 28.dp else 22.dp),
                 )
             }
             Text(
