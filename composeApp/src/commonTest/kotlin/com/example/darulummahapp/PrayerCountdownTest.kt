@@ -62,4 +62,13 @@ class PrayerCountdownTest {
         assertEquals("Jum'ah", upcoming.name)
         assertEquals("13:30", upcoming.jamaahTime)
     }
+
+    @Test
+    fun prayerDisplayTimeUsesTwelveHourClock() {
+        assertEquals("12:05 AM", formatPrayerDisplayTime("00:05"))
+        assertEquals("5:15 AM", formatPrayerDisplayTime("05:15"))
+        assertEquals("12:00 PM", formatPrayerDisplayTime("12:00"))
+        assertEquals("1:30 PM", formatPrayerDisplayTime("13:30"))
+        assertEquals("9:40 PM", formatPrayerDisplayTime("21:40"))
+    }
 }

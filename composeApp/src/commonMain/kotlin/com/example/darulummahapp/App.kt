@@ -928,7 +928,7 @@ private fun CountdownCard(
                 fontWeight = FontWeight.Bold,
             )
             Text(
-                text = "Jama'ah at ${upcomingPrayer.jamaahTime}",
+                text = "Jama'ah at ${formatPrayerDisplayTime(upcomingPrayer.jamaahTime)}",
                 color = Color.White,
                 fontSize = 16.sp,
             )
@@ -971,13 +971,13 @@ private fun JumahCard(jumahTime: JumahTime) {
                     fontWeight = FontWeight.Bold,
                 )
                 Text(
-                    text = "Khutbah starts at ${jumahTime.khutbahTime}",
+                    text = "Khutbah starts at ${formatPrayerDisplayTime(jumahTime.khutbahTime)}",
                     color = Color.White,
                     fontSize = 14.sp,
                 )
             }
             Text(
-                text = jumahTime.salaatTime,
+                text = formatPrayerDisplayTime(jumahTime.salaatTime),
                 color = Gold,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold,
@@ -1037,7 +1037,7 @@ private fun PrayerRow(
                 fontWeight = FontWeight.SemiBold,
             )
             Text(
-                text = "Begins ${prayer.beginsTime}",
+                text = "Begins ${formatPrayerDisplayTime(prayer.beginsTime)}",
                 color = colors.muted,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -1064,7 +1064,7 @@ private fun PrayerRow(
                 textAlign = TextAlign.End,
             )
             Text(
-                text = prayer.jamaahTime,
+                text = formatPrayerDisplayTime(prayer.jamaahTime),
                 color = if (isCurrent && colors != DarkAppColors) Green900 else colors.text,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Bold,
@@ -3455,6 +3455,22 @@ private fun formatTime(minuteOfDay: Int): String {
     val hour = minuteOfDay / 60
     val minute = minuteOfDay % 60
     return "${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}"
+}
+
+internal fun formatPrayerDisplayTime(time: String): String {
+    val parts = time.split(":")
+    if (parts.size != 2) return time
+
+    val hour = parts[0].toIntOrNull() ?: return time
+    val minute = parts[1].toIntOrNull() ?: return time
+    if (hour !in 0..23 || minute !in 0..59) return time
+
+    val displayHour = when (val hourInPeriod = hour % 12) {
+        0 -> 12
+        else -> hourInPeriod
+    }
+    val period = if (hour < 12) "AM" else "PM"
+    return "$displayHour:${minute.toString().padStart(2, '0')} $period"
 }
 
 private fun toMinuteOfDay(time: String): Int {
